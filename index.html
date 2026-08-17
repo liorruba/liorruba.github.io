@@ -72,7 +72,9 @@ nav{
 }
 nav.scrolled{border-bottom-color:var(--hairline)}
 .brand{
-  display:block;
+  display:flex;
+  align-items:center;
+  gap:18px;
   text-decoration:none;
   opacity:.92;
   transition:opacity .2s ease;
@@ -83,6 +85,34 @@ nav.scrolled{border-bottom-color:var(--hairline)}
   width:auto;
   display:block;
 }
+.brand-rule{
+  width:1px;
+  height:62px;
+  background:var(--hairline);
+  flex:none;
+}
+.brand-text{
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  height:90px;
+  gap:6px;
+}
+.brand-name{
+  font-size:21px;
+  font-weight:300;
+  letter-spacing:-.01em;
+  line-height:1.1;
+  color:var(--text);
+}
+.brand-title{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  line-height:1.3;
+  color:var(--text-faint);
+}
 .navlinks{display:flex;gap:clamp(16px,3vw,42px)}
 .navlinks a{
   text-decoration:none;
@@ -91,6 +121,9 @@ nav.scrolled{border-bottom-color:var(--hairline)}
   transition:color .2s ease;
 }
 .navlinks a:hover,.navlinks a:focus-visible{color:var(--text)}
+@media(max-width:1000px){
+  .brand-rule,.brand-text{display:none}
+}
 @media(max-width:640px){
   .brand img{height:66px}
   .navlinks{gap:15px}
@@ -242,6 +275,11 @@ ol.pubs li::before{
 }
 ol.pubs li .me{color:var(--text);font-weight:500}
 ol.pubs li .venue{font-style:italic}
+.pub-status a{
+  color:var(--text-dim) !important;
+  border-bottom:1px solid rgba(255,255,255,.2) !important;
+}
+.pub-status a:hover{color:var(--ice) !important}
 
 .subhead{
   font-family:var(--mono);
@@ -358,6 +396,11 @@ footer{position:relative;margin-top:40px}
 <nav id="nav">
   <a href="#top" class="brand" aria-label="Lior Rubanenko — home">
     <img src="images/tau-logo.png" alt="Tel Aviv University">
+    <span class="brand-rule"></span>
+    <span class="brand-text">
+      <span class="brand-name">Lior Rubanenko</span>
+      <span class="brand-title">Assistant Professor of Planetary Science</span>
+    </span>
   </a>
   <div class="navlinks">
     <a href="#about">About</a>
@@ -452,8 +495,8 @@ footer{position:relative;margin-top:40px}
     <li>Yair, Y., Rubanenko, L., Mezuman, K., Elhalel, G., Pariente, M., Glickman-Pariente, M., Ziv, B., Takahashi, Y. and Inoue, T., 2013. New color images of transient luminous events from dedicated observations on the International Space Station. <em>JASTP</em>, 102, 140–147, Elsevier.</li>
   </ol>
 
-  <p class="subhead">Selected conference presentations</p>
-  <ol class="pubs">
+  <p class="subhead">Conference presentations</p>
+  <ol class="pubs" id="conf-list">
     <li>Rubanenko, L., Paige, D.A., Moon, S. and Kakaria, R., 2023. CNN-detected boulders across the Jezero western delta fan indicate significantly higher flood discharge compared to previous estimates. AGU23.</li>
     <li>Prieur, N.C., Amaro, B., Gonzalez, E., Rubanenko, L., Kerner, H.R., Xiao, Z., Werner, S.C. and Lapôtre, M.G.A., 2022. Deep learning for boulder detection on planetary surfaces. AGU Fall Meeting, pp.P23A-02.</li>
     <li>Rubanenko, L., Fenton, L., Chojnacki, M. and Lapôtre, M.G.A., 2022. Impact of surface volatiles on the slipface slope angle of Martian barchan dunes. AGU Fall Meeting, pp.EP43A-09.</li>
@@ -609,25 +652,33 @@ footer{position:relative;margin-top:40px}
 
   /* ---- FILTER RULES: edit these to tune what appears ---- */
 
-  // Work types to consider at all.
+  // Work types that are never publications.
+  var DROP_TYPES = ['dataset','paratext','erratum','peer-review','grant','editorial','reference-entry','libguides'];
+
+  // Types allowed in the JOURNAL list.
   var KEEP_TYPES = ['article','review','book-chapter','book'];
 
   // OpenAlex source types that are never journals.
   var BLOCK_SOURCE_TYPES = ['repository','conference'];
 
-  // Venue names that mean "conference abstract", not "journal paper".
-  // Note: bare "AGU" is deliberately NOT blocked, so real journals like
-  // "AGU Advances" survive. Only meeting-specific forms are caught.
-  var BLOCK_VENUE = /\b(LPI|LPICo|LPSC|AGUFM|EGU|EGUsphere|EPSC|DPS|COSPAR|IAU)\b|\bAGU\s+(fall|spring|annual)\b|lunar and planetary|abstract|proceedings|conference|meeting|workshop|symposium|arxiv|preprint|essoar|research square|copernicus|zenodo|figshare/i;
+  // Datasets, preprint servers and repositories — shown in neither list.
+  var DATA_VENUE = /figshare|zenodo|dryad|arxiv|essoar|research square|egusphere|escholarship|open science framework|ssrn|preprints?\.org/i;
 
-  // One-off removals. Put bare DOIs here, e.g. '10.1234/abcd'.
+  // Venue names that mean CONFERENCE ABSTRACT.
+  // Note: bare "AGU" is deliberately absent so "AGU Advances" stays a journal.
+  var CONF_VENUE = /\b(LPI|LPICo|LPSC|AGUFM|EGU|EPSC|DPS|COSPAR|IAU)\b|\bAGU\s+(fall|spring|annual)\b|lunar and planetary|abstracts? with programs|conference|meeting|workshop|symposium|proceedings|abstract/i;
+
+  // One-off removals from both lists. Bare DOIs, lowercase.
   var EXCLUDE_DOI = [];
 
-  // Force-include works the rules wrongly drop (e.g. journal papers OpenAlex
-  // lists with no venue). Bare DOIs, lowercase.
+  // Force into the JOURNAL list. Bare DOIs, lowercase.
   var INCLUDE_DOI = [];
 
+  // Force into the CONFERENCE list. Bare DOIs, lowercase.
+  var CONF_DOI = [];
+
   var list = document.getElementById('pub-list');
+  var confList = document.getElementById('conf-list');
   var status = document.getElementById('pub-status');
   if (!list) return;
 
@@ -669,71 +720,91 @@ footer{position:relative;margin-top:40px}
     return String(doi || '').replace(/^https?:\/\/(dx\.)?doi\.org\//i,'').toLowerCase();
   }
 
-  function isJournal(w){
-    if (!w.title) return false;
-    if (EXCLUDE_DOI.indexOf(bareDoi(w.doi)) !== -1) return false;
-    if (INCLUDE_DOI.indexOf(bareDoi(w.doi)) !== -1) return true;
-    if (KEEP_TYPES.indexOf(w.type) === -1) return false;
+  function venueOf(w){
+    var src = w.primary_location && w.primary_location.source;
+    return (src && src.display_name) || '';
+  }
+
+  // Returns 'journal', 'conference', or null.
+  function classify(w){
+    if (!w.title) return null;
+
+    var doi = bareDoi(w.doi);
+    if (EXCLUDE_DOI.indexOf(doi) !== -1) return null;
+    if (INCLUDE_DOI.indexOf(doi) !== -1) return 'journal';
+    if (CONF_DOI.indexOf(doi) !== -1) return 'conference';
+
+    if (DROP_TYPES.indexOf(w.type) !== -1) return null;
 
     var src = w.primary_location && w.primary_location.source;
-    var venue = (src && src.display_name) || '';
+    var venue = venueOf(w);
 
-    if (BLOCK_VENUE.test(venue)) return false;
+    if (DATA_VENUE.test(venue)) return null;        // datasets, preprints
+    if (CONF_VENUE.test(venue)) return 'conference';
 
-    // Books and chapters won't have a journal-type source, so let them through
-    // on the venue check alone.
-    if (w.type === 'book-chapter' || w.type === 'book') return true;
+    // Everything below is journal-or-nothing.
+    if (KEEP_TYPES.indexOf(w.type) === -1) return null;
+    if (w.type === 'book-chapter' || w.type === 'book') return 'journal';
+    if (!src) return null;                          // no venue at all
+    if (BLOCK_SOURCE_TYPES.indexOf(src.type) !== -1) return null;
+    return 'journal';
+  }
 
-    if (!src) return false;                                    // no venue at all
-    if (BLOCK_SOURCE_TYPES.indexOf(src.type) !== -1) return false;
-    return true;
+  function format(w){
+    var venue = venueOf(w);
+    var bits = [];
+
+    var au = authorString(w.authorships);
+    if (au) bits.push(au);
+    if (w.publication_year) bits.push(w.publication_year);
+    bits.push(w.title);
+    if (venue) bits.push('<span class="venue">' + venue + '</span>');
+
+    var line = bits.join(', ') + '.';
+    if (w.doi) line += ' <a href="' + w.doi + '">Link</a>';
+    return '<li>' + line + '</li>';
   }
 
   function render(works){
-    var seen = {};
-    var items = [];
-    var dropped = [];
+    var seenJ = {}, seenC = {};
+    var journals = [], confs = [], dropped = [];
 
     works.forEach(function(w){
-      if (!isJournal(w)){
+      var kind = classify(w);
+
+      if (!kind){
         if (w.title){
-          var v = (w.primary_location && w.primary_location.source && w.primary_location.source.display_name) || 'no venue';
-          dropped.push(w.publication_year + ' · ' + v + ' · ' + w.title + '  [' + (bareDoi(w.doi) || 'no doi') + ']');
+          dropped.push(w.publication_year + ' · ' + (venueOf(w) || 'no venue')
+            + ' · ' + w.title + '  [' + (bareDoi(w.doi) || 'no doi') + ']');
         }
         return;
       }
 
-      var key = norm(w.title);
-      if (!key || seen[key] !== undefined) return;
-      seen[key] = items.length;
-      items.push(w);
+      if (kind === 'journal'){
+        // Dedupe by title: catches preprint/published pairs.
+        var kj = norm(w.title);
+        if (!kj || seenJ[kj]) return;
+        seenJ[kj] = true;
+        journals.push(w);
+      } else {
+        // Same talk given at two meetings is two entries, so key on venue+year too.
+        var kc = norm(w.title) + '|' + w.publication_year + '|' + norm(venueOf(w));
+        if (seenC[kc]) return;
+        seenC[kc] = true;
+        confs.push(w);
+      }
     });
 
-    if (window.console && dropped.length){
-      console.log('[publications] filtered out ' + dropped.length + ':');
-      dropped.forEach(function(d){ console.log('  ' + d); });
+    if (window.console){
+      console.log('[publications] ' + journals.length + ' journal, '
+        + confs.length + ' conference, ' + dropped.length + ' dropped');
+      dropped.forEach(function(d){ console.log('  drop: ' + d); });
     }
 
-    if (!items.length) return false;
+    if (!journals.length) return false;
 
-    var html = items.map(function(w){
-      var venue = (w.primary_location && w.primary_location.source && w.primary_location.source.display_name) || '';
-      var bits = [];
-
-      var au = authorString(w.authorships);
-      if (au) bits.push(au);
-      if (w.publication_year) bits.push(w.publication_year);
-      bits.push(w.title);
-      if (venue) bits.push('<span class="venue">' + venue + '</span>');
-
-      var line = bits.join(', ') + '.';
-      if (w.doi){
-        line += ' <a href="' + w.doi + '">Link</a>';
-      }
-      return '<li>' + line + '</li>';
-    }).join('');
-
-    list.innerHTML = html;
+    list.innerHTML = journals.map(format).join('');
+    if (confList && confs.length) confList.innerHTML = confs.map(format).join('');
     return true;
   }
 
@@ -744,7 +815,7 @@ footer{position:relative;margin-top:40px}
     })
     .then(function(data){
       if (render(data.results || [])){
-        if (status) status.textContent = 'Updated automatically from OpenAlex';
+        if (status) status.innerHTML = 'Source: <a href="https://openalex.org/' + AUTHOR_ID + '">OpenAlex</a>';
       }
     })
     .catch(function(){
