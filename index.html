@@ -829,6 +829,42 @@ footer{position:relative;margin-top:40px}
     });
 })();
 
+// ---- crossfade: hero name out, header name in ----
+(function(){
+  var hero = document.querySelector('header.hero');
+  var text = document.querySelector('.brand-text');
+  var rule = document.querySelector('.brand-rule');
+  if (!hero) return;
+
+  var ticking = false;
+
+  function update(){
+    ticking = false;
+    var span = (hero.offsetHeight || window.innerHeight) * 0.55;
+    var p = window.scrollY / span;
+    if (p < 0) p = 0;
+    if (p > 1) p = 1;
+
+    hero.style.opacity = (1 - p).toFixed(3);
+    if (text){
+      text.style.opacity = p.toFixed(3);
+      text.style.transform = 'translateY(' + ((1 - p) * 8).toFixed(2) + 'px)';
+    }
+    if (rule) rule.style.opacity = p.toFixed(3);
+  }
+
+  function onScroll(){
+    if (!ticking){
+      ticking = true;
+      requestAnimationFrame(update);
+    }
+  }
+
+  window.addEventListener('scroll', onScroll, {passive:true});
+  window.addEventListener('resize', onScroll, {passive:true});
+  update();
+})();
+
 // ---- nav hairline on scroll ----
 (function(){
   var nav = document.getElementById('nav');
