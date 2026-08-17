@@ -443,13 +443,53 @@ footer{position:relative;margin-top:40px}
 
   <div class="project">
     <div>
-      <h3>Unsupervised deep learning analysis of spacecraft data</h3>
-      <p>The vast volumes of information obtained by NASA spacecraft over the past decades require reevaluating traditional, manual methods for geospatial analysis of surface features. In this work, we use convolutional autoencoders to extract information from visible, thermal, and multi-spectral satellite and spacecraft data. This non-linear dimensionality reduction technique allows quantifying physical and geophysical phenomena in a reproducible manner for studying complex and long-term environmental and geologic processes.</p>
-      <p><a href="https://baas.aas.org/pub/2023n8i207p06/release/1">Read the DPS abstract</a></p>
+      <h3>Unsupervised classification of planetary surfaces</h3>
+      <p>Manual interpretation of spacecraft images is robust but does not scale, and it imposes the analyst's own categories onto the data. Working with Yasmin Hayat, we trained two unsupervised networks — a convolutional autoencoder and a masked autoencoder — on 32,000 CTX images of Mars' north polar erg, then used them to characterise 100,000 unseen images without a single manual label.</p>
+      <p>The masked autoencoder substantially outperformed the convolutional one, reaching 97% accuracy against 80% on the dune/non-dune task. More interestingly, dividing the latent space into a hundred clusters rather than six recovers a continuum — dense barchanoid ridges grading through isolated barchans, dark sediment, regolith and cratered terrain — rather than forcing sharp boundaries where nature has none. Relating those morphology maps to the Mars Climate Database shows dune-free regions coincide with the thickest seasonal ice, and that asymmetric dunes concentrate where winds are most bimodal.</p>
+      <p><a href="https://doi.org/10.1029/2025JH000997">Read the paper</a></p>
     </div>
     <figure>
-      <img src="images/autoencoder-craters.png" alt="Autoencoder classification of impact crater freshness on the Moon">
-      <figcaption>Autoencoder classification of impact crater freshness — Moon</figcaption>
+      <img src="images/autoencoder-classification.png" alt="Continuous clustering of dune morphologies projected onto Mars' north pole, beside modelled ice thickness and wind seasonality">
+      <figcaption>Continuous morphology classification vs. seasonal ice and wind seasonality — MRO CTX, LMD MCD</figcaption>
+    </figure>
+  </div>
+
+  <div class="project">
+    <div>
+      <h3>The ephemeral state of ice in micro cold traps on the Moon</h3>
+      <p>Micro cold traps — shadows cast by topography at centimetre to hundred-metre scales — are attractive targets for in-situ exploration because they are easy to reach. But how much ice can they actually hold? Using a 3-D thermal illumination model over rescaled LROC NAC terrain, I computed the permanently shadowed <em>volume</em> rather than area, across 140 simulated maps spanning latitudes 75°–90°.</p>
+      <p>Shadow depth scales at roughly 0.5–1% of a cold trap's lateral size, far shallower than the topography casting it. Comparing that capacity against destruction rates from impact gardening implies a metre-scale cold trap holds ice for only 200–300 ka — so a randomly chosen one will most likely be found empty. Even completely filled, the total volume available to micro cold traps is around two orders of magnitude below Shoemaker crater alone.</p>
+      <p><a href="https://doi.org/10.1016/j.icarus.2024.116199">Read the paper</a></p>
+    </div>
+    <figure>
+      <img src="images/micro-cold-traps.png" alt="Three-dimensional visualisation of permanently shadowed volume over rough lunar terrain">
+      <figcaption>Permanently shadowed volume over realistic lunar relief — LROC NAC DTM</figcaption>
+    </figure>
+  </div>
+
+  <div class="project">
+    <div>
+      <h3>Mapping Mars' surface winds from barchan morphology</h3>
+      <p>Mars has no meteorological network, so its dunes have to serve as the anemometers. Barchans form under roughly unimodal winds, which makes their slipface and horn orientations a direct proxy for sediment transport direction. Here we derived migration directions for over 700,000 barchans outlined globally by a neural network in MRO CTX imagery.</p>
+      <p>Migration follows continuous pathways thousands of kilometres long, aligned with southern-summer circulation and, strikingly, with mapped dust-storm tracks. Near the north pole we resolve an anti-cyclonic wind corridor that current GCMs miss entirely. Locally, topography takes over: the correlation between wind dispersion and roughness holds below roughly 10–50 km and vanishes above 100 km, meaning craters smaller than that deflect the winds that fill them.</p>
+      <p><a href="https://doi.org/10.1029/2022GL102610">Read the paper</a></p>
+    </div>
+    <figure>
+      <img src="images/global-winds.png" alt="Global map of barchan dune migration directions on Mars over MOLA shaded relief">
+      <figcaption>Global barchan migration directions over MOLA relief — MRO CTX</figcaption>
+    </figure>
+  </div>
+
+  <div class="project">
+    <div>
+      <h3>A distinct ripple-formation regime on Mars</h3>
+      <p>Mars carries a third class of bedform that Earth does not: metre-scale ripples, intermediate between decimetre impact ripples and dunes. Two explanations competed — that they are simply overgrown impact ripples, or that they arise from the same hydrodynamic instability that builds dunes and subaqueous bedforms. The two make different, testable predictions about how bedform size responds to atmospheric density.</p>
+      <p>Measuring the morphometrics of over a million barchans across Mars, we found the smallest dunes shrink as atmospheric density rises, with a power-law exponent near −2/3 — the same value derived empirically for subaqueous ripples, and squarely within the range hydrodynamic theory predicts. Dune and large-ripple sizes together bracket a forbidden gap in bedform wavelengths. Ancient aeolian sandstones may therefore record the density of the atmosphere they formed under.</p>
+      <p><a href="https://doi.org/10.1038/s41467-022-34974-3">Read the paper</a></p>
+    </div>
+    <figure>
+      <img src="images/ripple-regime.png" alt="Dune length and large-ripple wavelength decreasing with atmospheric density, bounding a gap in bedform sizes">
+      <figcaption>Bedform size vs. atmospheric density, bounding the hydrodynamic gap — MRO CTX, MOLA</figcaption>
     </figure>
   </div>
 
