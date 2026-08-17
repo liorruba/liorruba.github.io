@@ -71,11 +71,17 @@ nav{
   transition:border-color .3s ease;
 }
 nav.scrolled{border-bottom-color:var(--hairline)}
-.mono-mark{
-  font-weight:700;
-  letter-spacing:.06em;
-  font-size:16px;
+.brand{
+  display:block;
   text-decoration:none;
+  opacity:.92;
+  transition:opacity .2s ease;
+}
+.brand:hover{opacity:1}
+.brand img{
+  height:30px;
+  width:auto;
+  display:block;
 }
 .navlinks{display:flex;gap:clamp(16px,3vw,42px)}
 .navlinks a{
@@ -86,6 +92,7 @@ nav.scrolled{border-bottom-color:var(--hairline)}
 }
 .navlinks a:hover,.navlinks a:focus-visible{color:var(--text)}
 @media(max-width:640px){
+  .brand img{height:22px}
   .navlinks{gap:15px}
   .navlinks a{font-size:13px}
 }
@@ -337,7 +344,9 @@ footer{position:relative;margin-top:40px}
 <div class="wrap">
 
 <nav id="nav">
-  <a href="#top" class="mono-mark">LR</a>
+  <a href="#top" class="brand" aria-label="Lior Rubanenko — home">
+    <img src="images/tau-logo.png" alt="Tel Aviv University">
+  </a>
   <div class="navlinks">
     <a href="#about">About</a>
     <a href="#research">Research</a>
