@@ -616,10 +616,16 @@ footer{position:relative;margin-top:40px}
   var BLOCK_SOURCE_TYPES = ['repository','conference'];
 
   // Venue names that mean "conference abstract", not "journal paper".
-  var BLOCK_VENUE = /\b(LPI|LPSC|AGU|EGU|EPSC|DPS|COSPAR)\b|lunar and planetary|abstract|proceedings|conference|meeting|arxiv|preprint|essoar|research square|copernicus|zenodo|figshare/i;
+  // Note: bare "AGU" is deliberately NOT blocked, so real journals like
+  // "AGU Advances" survive. Only meeting-specific forms are caught.
+  var BLOCK_VENUE = /\b(LPI|LPICo|LPSC|AGUFM|EGU|EGUsphere|EPSC|DPS|COSPAR|IAU)\b|\bAGU\s+(fall|spring|annual)\b|lunar and planetary|abstract|proceedings|conference|meeting|workshop|symposium|arxiv|preprint|essoar|research square|copernicus|zenodo|figshare/i;
 
   // One-off removals. Put bare DOIs here, e.g. '10.1234/abcd'.
   var EXCLUDE_DOI = [];
+
+  // Force-include works the rules wrongly drop (e.g. journal papers OpenAlex
+  // lists with no venue). Bare DOIs, lowercase.
+  var INCLUDE_DOI = [];
 
   var list = document.getElementById('pub-list');
   var status = document.getElementById('pub-status');
@@ -665,8 +671,9 @@ footer{position:relative;margin-top:40px}
 
   function isJournal(w){
     if (!w.title) return false;
-    if (KEEP_TYPES.indexOf(w.type) === -1) return false;
     if (EXCLUDE_DOI.indexOf(bareDoi(w.doi)) !== -1) return false;
+    if (INCLUDE_DOI.indexOf(bareDoi(w.doi)) !== -1) return true;
+    if (KEEP_TYPES.indexOf(w.type) === -1) return false;
 
     var src = w.primary_location && w.primary_location.source;
     var venue = (src && src.display_name) || '';
@@ -691,7 +698,7 @@ footer{position:relative;margin-top:40px}
       if (!isJournal(w)){
         if (w.title){
           var v = (w.primary_location && w.primary_location.source && w.primary_location.source.display_name) || 'no venue';
-          dropped.push(w.publication_year + ' · ' + v + ' · ' + w.title);
+          dropped.push(w.publication_year + ' · ' + v + ' · ' + w.title + '  [' + (bareDoi(w.doi) || 'no doi') + ']');
         }
         return;
       }
