@@ -606,7 +606,20 @@ footer{position:relative;margin-top:40px}
 (function(){
   var AUTHOR_ID = 'A5033877545';
   var MAIL = 'liorr@tauex.tau.ac.il';        // OpenAlex "polite pool" — faster, more reliable
-  var KEEP = ['article','review','book-chapter','book','preprint'];
+
+  /* ---- FILTER RULES: edit these to tune what appears ---- */
+
+  // Work types to consider at all.
+  var KEEP_TYPES = ['article','review','book-chapter','book'];
+
+  // OpenAlex source types that are never journals.
+  var BLOCK_SOURCE_TYPES = ['repository','conference'];
+
+  // Venue names that mean "conference abstract", not "journal paper".
+  var BLOCK_VENUE = /\b(LPI|LPSC|AGU|EGU|EPSC|DPS|COSPAR)\b|lunar and planetary|abstract|proceedings|conference|meeting|arxiv|preprint|essoar|research square|copernicus|zenodo|figshare/i;
+
+  // One-off removals. Put bare DOIs here, e.g. '10.1234/abcd'.
+  var EXCLUDE_DOI = [];
 
   var list = document.getElementById('pub-list');
   var status = document.getElementById('pub-status');
@@ -646,28 +659,53 @@ footer{position:relative;margin-top:40px}
     return String(t || '').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
   }
 
+  function bareDoi(doi){
+    return String(doi || '').replace(/^https?:\/\/(dx\.)?doi\.org\//i,'').toLowerCase();
+  }
+
+  function isJournal(w){
+    if (!w.title) return false;
+    if (KEEP_TYPES.indexOf(w.type) === -1) return false;
+    if (EXCLUDE_DOI.indexOf(bareDoi(w.doi)) !== -1) return false;
+
+    var src = w.primary_location && w.primary_location.source;
+    var venue = (src && src.display_name) || '';
+
+    if (BLOCK_VENUE.test(venue)) return false;
+
+    // Books and chapters won't have a journal-type source, so let them through
+    // on the venue check alone.
+    if (w.type === 'book-chapter' || w.type === 'book') return true;
+
+    if (!src) return false;                                    // no venue at all
+    if (BLOCK_SOURCE_TYPES.indexOf(src.type) !== -1) return false;
+    return true;
+  }
+
   function render(works){
     var seen = {};
     var items = [];
+    var dropped = [];
 
     works.forEach(function(w){
-      if (!w.title) return;
-      if (KEEP.indexOf(w.type) === -1) return;
-
-      var key = norm(w.title);
-      if (!key) return;
-
-      // Prefer the published version over a preprint of the same paper
-      if (seen[key] !== undefined){
-        var prev = items[seen[key]];
-        if (prev.type === 'preprint' && w.type !== 'preprint'){
-          items[seen[key]] = w;
+      if (!isJournal(w)){
+        if (w.title){
+          var v = (w.primary_location && w.primary_location.source && w.primary_location.source.display_name) || 'no venue';
+          dropped.push(w.publication_year + ' · ' + v + ' · ' + w.title);
         }
         return;
       }
+
+      var key = norm(w.title);
+      if (!key || seen[key] !== undefined) return;
       seen[key] = items.length;
       items.push(w);
     });
+
+    if (window.console && dropped.length){
+      console.log('[publications] filtered out ' + dropped.length + ':');
+      dropped.forEach(function(d){ console.log('  ' + d); });
+    }
 
     if (!items.length) return false;
 
