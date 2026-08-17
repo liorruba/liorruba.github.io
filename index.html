@@ -79,7 +79,7 @@ nav.scrolled{border-bottom-color:var(--hairline)}
 }
 .brand:hover{opacity:1}
 .brand img{
-  height:30px;
+  height:90px;
   width:auto;
   display:block;
 }
@@ -92,7 +92,7 @@ nav.scrolled{border-bottom-color:var(--hairline)}
 }
 .navlinks a:hover,.navlinks a:focus-visible{color:var(--text)}
 @media(max-width:640px){
-  .brand img{height:22px}
+  .brand img{height:66px}
   .navlinks{gap:15px}
   .navlinks a{font-size:13px}
 }
@@ -231,6 +231,18 @@ ol.pubs li::before{
 }
 @media(max-width:600px){ol.pubs li{padding-left:38px}}
 
+.pub-status{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.13em;
+  text-transform:uppercase;
+  color:var(--text-faint);
+  margin:-14px 0 22px;
+  min-height:1em;
+}
+ol.pubs li .me{color:var(--text);font-weight:500}
+ol.pubs li .venue{font-style:italic}
+
 .subhead{
   font-family:var(--mono);
   font-size:11px;
@@ -358,7 +370,7 @@ footer{position:relative;margin-top:40px}
 
 <header class="hero" id="top">
   <h1>Lior Rubanenko</h1>
-  <p class="tagline">Researcher in AI-assisted spacecraft and remote sensing of surface processes.</p>
+  <p class="tagline">Assistant Professor of Planetary Science</p>
   <div class="affil">Tel Aviv University</div>
 </header>
 
@@ -371,7 +383,7 @@ footer{position:relative;margin-top:40px}
     <div>
       <p>I seek to understand how planetary surfaces form and evolve, and how they interact with ice, wind, and the harsh environment of space. To accomplish this goal, I harness the vast amount of remote sensing data gathered by NASA spacecraft and analyze them using statistics, machine and deep learning. As a member of the <a href="https://www.diviner.ucla.edu/">LRO Diviner team</a>, I work on a variety of problems related to the way surface roughness affects the temperature and the stability of ice on the Moon.</p>
 
-      <p>Currently, I am an Assistant Professor at the <a href="https://en-exact-sciences.tau.ac.il/earth">Department of Geophysics</a>, Tel Aviv University. Previously, I was a postdoctoral scholar at the <a href="https://earth.stanford.edu/gs">Department of Geological Sciences at Stanford University</a>, where I worked with Mathieu Lapotre on applying artificial intelligence to map and investigate topographic features on the surface of Mars. Before that, I completed my PhD at UCLA, working with <a href="https://www.diviner.ucla.edu/dap">David Paige</a> on problems related to radiometry and geomorphology on the Moon and Mercury, and my Master's degree at the Weizmann Institute of Science, where I worked with <a href="https://sites.google.com/a/aharonson.com/aharonson/">Oded Aharonson</a> on modeling temperatures and ice stability on airless planetary surfaces. My undergraduate research projects focussed on characterizing Transient Luminous Events (TLEs) with <a href="https://www.idc.ac.il/en/pages/faculty.aspx?username=yoav.yair">Yoav Yair</a> (the Open University) and <a href="https://www.tau.ac.il/~colin/">Colin Price</a> (Tel Aviv University).</p>
+      <p>Currently, I am an Assistant Professor at the <a href="https://en-exact-sciences.tau.ac.il/earth">Department of Earth and Planetary Sciences</a>, Tel Aviv University. Previously, I was a postdoctoral scholar at the <a href="https://earth.stanford.edu/gs">Department of Geological Sciences at Stanford University</a>, where I worked with Mathieu Lapotre on applying artificial intelligence to map and investigate topographic features on the surface of Mars. Before that, I completed my PhD at UCLA, working with <a href="https://www.diviner.ucla.edu/dap">David Paige</a> on problems related to radiometry and geomorphology on the Moon and Mercury, and my Master's degree at the Weizmann Institute of Science, where I worked with <a href="https://sites.google.com/a/aharonson.com/aharonson/">Oded Aharonson</a> on modeling temperatures and ice stability on airless planetary surfaces. My undergraduate research projects focussed on characterizing Transient Luminous Events (TLEs) with <a href="https://www.idc.ac.il/en/pages/faculty.aspx?username=yoav.yair">Yoav Yair</a> (the Open University) and <a href="https://www.tau.ac.il/~colin/">Colin Price</a> (Tel Aviv University).</p>
 
       <p>Apart from research, I am also very much involved in science outreach. I was the scientific editor-in-chief of "Mada Gadol Bektana" (lit. "Science in a Nutshell"), the largest science outreach non-profit organization in Israel, and give popular science talks aimed at general audiences and professional organizations. From time to time I also publish articles on planetary science or astronomy in Israeli news sites — for example, the <a href="https://www.ynet.co.il/articles/0,7340,L-4980350,00.html">potential discovery</a> of a planetary mass object in the Kuiper Belt, based on <a href="https://arxiv.org/abs/1704.02444">this paper</a>.</p>
     </div>
@@ -422,7 +434,8 @@ footer{position:relative;margin-top:40px}
 <section id="publications" class="reveal">
   <p class="eyebrow">Publications</p>
   <h2>Peer-reviewed journals and books</h2>
-  <ol class="pubs">
+  <p class="pub-status" id="pub-status"></p>
+  <ol class="pubs" id="pub-list">
     <li>Williams, J.P. and Rubanenko, L., 2024. Cold-trapped ices at the poles of Mercury and the Moon. In <em>Ices in the Solar System</em> (pp. 1–29). Elsevier. <a href="https://www.sciencedirect.com/science/article/abs/pii/B978032399324100002X">Link</a></li>
     <li>Rubanenko, L., Gunn, A., Pérez-López, S., Fenton, L.K., Ewing, R.C., Soto, A. and Lapôtre, M.G.A., 2023. Global surface winds and aeolian sediment pathways on Mars from the morphology of barchan dunes. <em>Geophysical Research Letters</em>, 50(18), p.e2022GL102610. <a href="https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2022GL102610">Link</a></li>
     <li>Prieur, N.C., Amaro, B., Gonzalez, E., Kerner, H., Medvedev, S., Rubanenko, L., Werner, S.C., Xiao, Z., Zastrozhnov, D. and Lapôtre, M.G., 2023. Automatic characterization of boulders on planetary surfaces from high-resolution satellite images. <em>JGR: Planets</em>, 128(11), p.e2023JE008013.</li>
@@ -473,19 +486,15 @@ footer{position:relative;margin-top:40px}
 
 <section id="contact" class="reveal">
   <p class="eyebrow">Contact</p>
-  <h2>Department of Geophysics<br>Tel Aviv University</h2>
+  <h2>Department of Earth and Planetary Sciences<br>Tel Aviv University</h2>
   <div class="contact-list">
     <div>
       <span class="contact-label">Email</span>
-      <a href="mailto:REPLACE-ME@tauex.tau.ac.il">REPLACE-ME@tauex.tau.ac.il</a>
+      <a href="mailto:liorr@tauex.tau.ac.il">liorr@tauex.tau.ac.il</a>
     </div>
     <div>
       <span class="contact-label">GitHub</span>
       <a href="https://github.com/liorruba">github.com/liorruba</a>
-    </div>
-    <div>
-      <span class="contact-label">Projects</span>
-      <a href="https://moon.liorruba.com">moon.liorruba.com</a>
     </div>
   </div>
 </section>
@@ -528,7 +537,7 @@ footer{position:relative;margin-top:40px}
   <div class="ground">
     <div class="ground-inner">
       <span>Lior Rubanenko</span>
-      <span>Tel Aviv University · Department of Geophysics</span>
+      <span>Tel Aviv University · Department of Earth and Planetary Sciences</span>
       <a href="#top">Back to top ↑</a>
     </div>
   </div>
@@ -591,6 +600,112 @@ footer{position:relative;margin-top:40px}
     clearTimeout(to);
     to = setTimeout(function(){ build(); if (reduce) draw(0); }, 200);
   });
+})();
+
+// ---- publications from OpenAlex ----
+(function(){
+  var AUTHOR_ID = 'A5033877545';
+  var MAIL = 'liorr@tauex.tau.ac.il';        // OpenAlex "polite pool" — faster, more reliable
+  var KEEP = ['article','review','book-chapter','book','preprint'];
+
+  var list = document.getElementById('pub-list');
+  var status = document.getElementById('pub-status');
+  if (!list) return;
+
+  var url = 'https://api.openalex.org/works'
+    + '?filter=author.id:' + AUTHOR_ID
+    + '&per-page=200'
+    + '&sort=publication_date:desc'
+    + '&select=id,doi,title,publication_year,publication_date,type,authorships,primary_location'
+    + '&mailto=' + encodeURIComponent(MAIL);
+
+  function initials(name){
+    var parts = String(name).trim().split(/\s+/);
+    if (parts.length < 2) return name;
+    var last = parts.pop();
+    var ini = parts.map(function(p){ return p.charAt(0).toUpperCase() + '.'; }).join(' ');
+    return last + ', ' + ini;
+  }
+
+  function authorString(authorships){
+    var names = (authorships || []).map(function(a){
+      return (a.author && a.author.display_name) || '';
+    }).filter(Boolean);
+    if (!names.length) return '';
+    var shown = names.slice(0, 8).map(function(n){
+      var f = initials(n);
+      if (/rubanenko/i.test(n)) return '<span class="me">' + f + '</span>';
+      return f;
+    });
+    var out = shown.join(', ');
+    if (names.length > 8) out += ' et al.';
+    return out;
+  }
+
+  function norm(t){
+    return String(t || '').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  }
+
+  function render(works){
+    var seen = {};
+    var items = [];
+
+    works.forEach(function(w){
+      if (!w.title) return;
+      if (KEEP.indexOf(w.type) === -1) return;
+
+      var key = norm(w.title);
+      if (!key) return;
+
+      // Prefer the published version over a preprint of the same paper
+      if (seen[key] !== undefined){
+        var prev = items[seen[key]];
+        if (prev.type === 'preprint' && w.type !== 'preprint'){
+          items[seen[key]] = w;
+        }
+        return;
+      }
+      seen[key] = items.length;
+      items.push(w);
+    });
+
+    if (!items.length) return false;
+
+    var html = items.map(function(w){
+      var venue = (w.primary_location && w.primary_location.source && w.primary_location.source.display_name) || '';
+      var bits = [];
+
+      var au = authorString(w.authorships);
+      if (au) bits.push(au);
+      if (w.publication_year) bits.push(w.publication_year);
+      bits.push(w.title);
+      if (venue) bits.push('<span class="venue">' + venue + '</span>');
+
+      var line = bits.join(', ') + '.';
+      if (w.doi){
+        line += ' <a href="' + w.doi + '">Link</a>';
+      }
+      return '<li>' + line + '</li>';
+    }).join('');
+
+    list.innerHTML = html;
+    return true;
+  }
+
+  fetch(url)
+    .then(function(r){
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(data){
+      if (render(data.results || [])){
+        if (status) status.textContent = 'Updated automatically from OpenAlex';
+      }
+    })
+    .catch(function(){
+      // Static list already in the HTML stays exactly as it is.
+      if (status) status.textContent = '';
+    });
 })();
 
 // ---- nav hairline on scroll ----
