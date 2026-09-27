@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@font-face{font-family:"Inter";src:url("fonts/inter-latin.woff2") format("woff2");font-weight:100 900}
+html,body{margin:0;background:#161A2B}
+canvas{display:block}
+</style>
+</head>
+<body>
+<canvas id="c" width="1200" height="800"></canvas>
+<script>
+// Micro cold traps on the Moon: a cartoon explainer, 20 s seamless loop.
+var W = 1200, H = 800, DUR = 20;
+var c = document.getElementById('c'), ctx = c.getContext('2d');
+var ICE = '143,211,232', D2R = Math.PI/180;
+
+// ---------- helpers ----------
+function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
+function seg(t,a,b){ return clamp((t-a)/(b-a), 0, 1); }
+function ease(x){ return x<.5 ? 4*x*x*x : 1-Math.pow(-2*x+2,3)/2; }
+function easeOut(x){ return 1-Math.pow(1-x,3); }
+function rng(seed){ return function(){ seed = (seed*16807) % 2147483647; return (seed-1)/2147483646; }; }
+function rrect(x,y,w,h,r){ ctx.beginPath(); ctx.roundRect(x,y,w,h,r); }
+function loopSin(t, k, ph){ return Math.sin(2*Math.PI*k*t/DUR + (ph||0)); }   // periodic over the loop
+
+function pill(text, x, y, a){
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.font = '600 25px Inter';
+  var w = ctx.measureText(text).width + 34;
+  rrect(x - w/2, y - 22, w, 44, 22); ctx.fillStyle = 'rgba(14,17,32,.78)'; ctx.fill();
+  ctx.fillStyle = '#F3F5F9'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x, y + 1);
+  ctx.restore();
+}
+
+// ---------- terrain (world units, y up; 0 = mean surface) ----------
+var BIG = { c:0, r:320, d:60, rim:18 };
+var VE = 2.5;                                     // cartoon vertical exaggeration
+var BOWLS = [[560,16],[612,11],[650,20],[700,24],[752,13],[790,18],[836,10],[872,15]];
+var HERO = { c:700, r:24 };                       // the depression we zoom into
+function bowl(x, cx, r, d, rim){
+  var u = (x - cx)/r, y = 0;
+  if (Math.abs(u) < 1) y -= d*(1 - u*u);
+  y += rim*Math.exp(-Math.pow((Math.abs(u) - 1)/.28, 2));
+  return y;
+}
+function ground(x){
+  // gentle rolling ground, flattened across the field of small depressions
+  var flat = 1 - .9*seg(x, 470, 530)*(1 - seg(x, 900, 960));
+  var y = (3*Math.sin(x/140) + 2*Math.sin(x/61 + 1)) * flat;
+  y += bowl(x, BIG.c, BIG.r, BIG.d, BIG.rim);
+  for (var i=0;i<BOWLS.length;i++){ var b = BOWLS[i], d = .22*b[1]; y += bowl(x, b[0], b[1], d, .1*d); }
+  return y;
+}
+
+// ---------- camera ----------
+var CAM_WIDE = { cx:250, cy:-20, s:.8 }, CAM_FIELD = { cx:716, cy:-2, s:3.3 }, CAM_BOWL = { cx:700, cy:-1.05, s:18 };
+function lerpCam(A, B, p){
+  if (p <= 0) return A; if (p >= 1) return B;
+  var s = A.s*Math.pow(B.s/A.s, p), w = (1/s - 1/A.s)/(1/B.s - 1/A.s);
+  return { cx: A.cx + (B.cx - A.cx)*w, cy: A.cy + (B.cy - A.cy)*w, s:s };
+}
+function camAt(t){
+  if (t < 4.4) return CAM_WIDE;
+  if (t < 5.6) return lerpCam(CAM_WIDE, CAM_FIELD, ease(seg(t, 4.4, 5.6)));
+  if (t < 8.1) return CAM_FIELD;
+  if (t < 9.3) return lerpCam(CAM_FIELD, CAM_BOWL, ease(seg(t, 8.1, 9.3)));
+  if (t < 16.7) return CAM_BOWL;
+  return lerpCam(CAM_BOWL, CAM_WIDE, ease(seg(t, 16.7, 18.2)));
+}
+var cam;
+function sx(x){ return W/2 + (x - cam.cx)*cam.s; }
+function sy(y){ return H/2 - (y - cam.cy)*cam.s*VE; }
+
+// ---------- sunlight ----------
+// Shadow top S(x): air below it is in shadow. Sweeps along the terrain from the Sun's side.
+function shadowTop(xs, gs, fromLeft, tanE){
+  var n = xs.length, S = new Float64Array(n), i;
+  if (fromLeft){
+    S[0] = -1e9;
+    for (i=1;i<n;i++) S[i] = Math.max(S[i-1], gs[i-1]) - tanE*(xs[i] - xs[i-1]);
+  } else {
+    S[n-1] = -1e9;
+    for (i=n-2;i>=0;i--) S[i] = Math.max(S[i+1], gs[i+1]) - tanE*(xs[i+1] - xs[i]);
+  }
+  return S;
+}
+
+// The hero depression treated as a round bowl, lit by a Sun circling the pole at a fixed low
+// elevation. For each Sun azimuth we ray-march the shadow top along the vertical slice we show.
+var HB = { dx:.15, phis:72 };
+function radialH(r){ return .5*(ground(HERO.c + r) + ground(HERO.c - r)); }
+function buildBowlShadows(tanE){
+  var cosE = 1/Math.sqrt(1 + tanE*tanE), sinE = tanE*cosE, R = HERO.r*1.1, i, k;
+  HB.x0 = -R; HB.n = Math.round(2*R/HB.dx) + 1; HB.S = [];
+  var hmax = -1e9; for (var r=0; r<HERO.r*1.8; r+=.1) hmax = Math.max(hmax, radialH(r));
+  for (k=0;k<HB.phis;k++){
+    var ph = 2*Math.PI*k/HB.phis, ux = -Math.cos(ph)*cosE, uy = Math.sin(ph)*cosE, arr = new Float64Array(HB.n);
+    for (i=0;i<HB.n;i++){
+      var x = HB.x0 + i*HB.dx, g = radialH(Math.abs(x));
+      var dark = function(z){
+        for (var s=.25; s<400; s+=.25){
+          var pz = z + sinE*s;
+          if (pz > hmax) return false;
+          if (pz < radialH(Math.hypot(x + ux*s, uy*s))) return true;
+        }
+        return false;
+      };
+      if (!dark(g + .03)){ arr[i] = -1e9; continue; }
+      var lo = g, hi = hmax;
+      for (var it=0; it<14; it++){ var m = (lo + hi)/2; if (dark(m)) lo = m; else hi = m; }
+      arr[i] = lo;
+    }
+    HB.S.push(arr);
+  }
+  HB.psv = new Float64Array(HB.n);
+  for (i=0;i<HB.n;i++){ var v = 1e9; for (k=0;k<HB.phis;k++) v = Math.min(v, HB.S[k][i]); HB.psv[i] = v; }
+}
+function bowlShadow(ph){
+  var u = ((ph/(2*Math.PI)) % 1 + 1) % 1 * HB.phis, k0 = Math.floor(u) % HB.phis, k1 = (k0 + 1) % HB.phis, f = u - Math.floor(u);
+  var a = HB.S[k0], b = HB.S[k1], out = new Float64Array(HB.n);
+  for (var i=0;i<HB.n;i++) out[i] = (a[i] < -1e8 || b[i] < -1e8) ? (f < .5 ? a[i] : b[i]) : a[i] + (b[i] - a[i])*f;
+  return out;
+}
+function bowlDarkSoFar(ph){
+  // the part of the slice that has stayed in shadow from azimuth 0 up to ph
+  var cur = bowlShadow(ph), out = new Float64Array(HB.n);
+  for (var i=0;i<HB.n;i++){
+    var v = cur[i];
+    for (var k=0; k<HB.phis && 2*Math.PI*k/HB.phis <= ph; k++) v = Math.min(v, HB.S[k][i]);
+    out[i] = v;
+  }
+  return out;
+}
+function mapBowl(xs, arr){
+  var out = new Float64Array(xs.length).fill(-1e9);
+  for (var i=0;i<xs.length;i++){
+    var j = (xs[i] - HERO.c - HB.x0)/HB.dx;
+    if (j < 0 || j >= HB.n - 1) continue;
+    var j0 = Math.floor(j), f = j - j0, a = arr[j0], b = arr[j0+1];
+    out[i] = (a < -1e8 || b < -1e8) ? (f < .5 ? a : b) : a + (b - a)*f;
+  }
+  return out;
+}
+buildBowlShadows(Math.tan(11*D2R));
+
+// ---------- static decoration ----------
+var STARS = [], SPARK = [], IMPACTS = [];
+(function(){
+  var r = rng(9), i;
+  for (i=0;i<170;i++) STARS.push([r()*W, r()*H*.62, .4 + r()*1.2, .25 + r()*.55]);
+  for (i=0;i<16;i++) SPARK.push({ x:-190 + r()*380, k: 1 + Math.floor(r()*4), ph:r()*6.28, sz:.6 + r()*.6 });
+  for (i=0;i<8;i++){
+    var parts = [];
+    for (var k=0;k<18;k++){ var a = -Math.PI*(.15 + r()*.7); parts.push({ vx:Math.cos(a)*(120 + r()*260), vy:Math.sin(a)*(160 + r()*300), ice: k < 6, r:2 + r()*3 }); }
+    IMPACTS.push({ t: 14.6 + i*.24 + r()*.04, x: HERO.c + (r() - .5)*HERO.r*1.1, parts:parts });
+  }
+})();
+
+// ---------- drawing ----------
+function drawSky(){
+  var g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#0E1120'); g.addColorStop(1, '#1A1F33');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  STARS.forEach(function(s){ ctx.fillStyle = 'rgba(226,233,245,' + s[3] + ')'; ctx.beginPath(); ctx.arc(s[0], s[1], s[2], 0, 7); ctx.fill(); });
+}
+
+function drawSun(x, y, a){
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  var g = ctx.createRadialGradient(x, y, 0, x, y, 120);
+  g.addColorStop(0, 'rgba(255,240,200,.55)'); g.addColorStop(1, 'rgba(255,240,200,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 120, 0, 7); ctx.fill();
+  ctx.fillStyle = '#FFF4D6'; ctx.beginPath(); ctx.arc(x, y, 22, 0, 7); ctx.fill();
+  ctx.restore();
+}
+
+// Everything below is drawn for a given camera and sun state.
+//  sunL, sunR: strength of sunlight from the left / right (0..1)
+//  tanE: sun elevation; psv: show the never-sunlit region; iceF: ice fill (0..1) in the hero bowl
+function drawWorld(t, st){
+  var xL = cam.cx - (W/2)/cam.s, xR = cam.cx + (W/2)/cam.s, M = 820;
+  var step = Math.max(.02, Math.min(1.5, 1/cam.s)), xs = [], gs = [], i;
+  for (var x = xL - M; x <= xR + M; x += step){ xs.push(x); gs.push(ground(x)); }
+  var n = xs.length;
+  var SL = shadowTop(xs, gs, true, st.tanE), SR = shadowTop(xs, gs, false, st.tanE);
+  var i0 = Math.floor(M/step), i1 = Math.min(n-1, Math.ceil((xR - xL + M)/step));
+
+  // ground body
+  ctx.beginPath(); ctx.moveTo(sx(xs[i0]), H + 10);
+  for (i=i0;i<=i1;i++) ctx.lineTo(sx(xs[i]), sy(gs[i]));
+  ctx.lineTo(sx(xs[i1]), H + 10); ctx.closePath();
+  var gg = ctx.createLinearGradient(0, sy(20), 0, sy(20) + 420);
+  gg.addColorStop(0, '#A3A3AC'); gg.addColorStop(1, '#4A4B57');
+  ctx.fillStyle = gg; ctx.fill();
+
+  // big crater ice pond + sparkles
+  var floor = ground(BIG.c), iceTop = floor + 5;
+  var pond = [], on = false;
+  for (i=i0;i<=i1;i++) if (Math.abs(xs[i]) < BIG.r && gs[i] < iceTop) pond.push(i);
+  var xr = 0;
+  if (pond.length > 1){
+    var pa0 = pond[0], pa1 = pond[pond.length-1];
+    xr = Math.max(Math.abs(xs[pa0]), Math.abs(xs[pa1]));
+    ctx.beginPath(); ctx.moveTo(sx(xs[pa0]), sy(iceTop)); ctx.lineTo(sx(xs[pa1]), sy(iceTop));
+    for (var q0=pa1;q0>=pa0;q0--) ctx.lineTo(sx(xs[q0]), sy(gs[q0]));
+    ctx.closePath(); ctx.fillStyle = '#BFE3F2'; ctx.fill();
+    ctx.strokeStyle = '#EAF8FF'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(sx(xs[pa0]), sy(iceTop)); ctx.lineTo(sx(xs[pa1]), sy(iceTop)); ctx.stroke();
+  }
+
+  // hero-bowl ice: fills the never-sunlit region from the bottom
+  var T = function(k){ return Math.min(SL[k], SR[k]); }, P = T;
+  if (st.bowl){
+    SL = mapBowl(xs, bowlShadow(st.phi)); SR = SL;
+    var TA = mapBowl(xs, HB.psv), PA = mapBowl(xs, bowlDarkSoFar(st.phi));
+    T = function(k){ return TA[k]; }; P = function(k){ return PA[k]; };
+  }
+  var hb0 = HERO.c - HERO.r, hb1 = HERO.c + HERO.r, gmin = ground(HERO.c), tmax = -1e9;
+  for (i=i0;i<=i1;i++) if (xs[i] > hb0 && xs[i] < hb1 && T(i) > gs[i]) tmax = Math.max(tmax, T(i));
+  if (st.iceF > 0 && tmax > gmin){
+    var lvl = gmin + st.iceF*(tmax - gmin);
+    ctx.beginPath(); on = false; var pts = [];
+    for (i=i0;i<=i1;i++){
+      if (xs[i] <= hb0 || xs[i] >= hb1) continue;
+      var top = Math.min(T(i), lvl);
+      if (top > gs[i]) pts.push([xs[i], top, gs[i]]);
+    }
+    if (pts.length > 1){
+      ctx.moveTo(sx(pts[0][0]), sy(pts[0][1]));
+      pts.forEach(function(p){ ctx.lineTo(sx(p[0]), sy(p[1])); });
+      for (var k=pts.length-1;k>=0;k--) ctx.lineTo(sx(pts[k][0]), sy(pts[k][2]));
+      ctx.closePath(); ctx.fillStyle = '#BFE3F2'; ctx.fill();
+      ctx.strokeStyle = '#EAF8FF'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); pts.forEach(function(p, j){ j ? ctx.lineTo(sx(p[0]), sy(p[1])) : ctx.moveTo(sx(p[0]), sy(p[1])); }); ctx.stroke();
+    }
+  }
+
+  // shadows from each sun, as dark air wedges that also darken the surface
+  function shade(S, a){
+    if (a <= 0) return;
+    ctx.fillStyle = 'rgba(8,11,26,' + (.62*a) + ')';
+    var j = i0;
+    while (j <= i1){
+      while (j <= i1 && !(S[j] > gs[j])) j++;
+      if (j > i1) break;
+      var j0 = j;
+      while (j <= i1 && S[j] > gs[j]) j++;
+      var j1 = j - 1;
+      ctx.beginPath();
+      ctx.moveTo(sx(xs[j0]), sy(gs[j0]));
+      for (var q=j0;q<=j1;q++) ctx.lineTo(sx(xs[q]), sy(S[q]));
+      for (q=j1;q>=j0;q--) ctx.lineTo(sx(xs[q]), sy(gs[q]) + 5);
+      ctx.closePath(); ctx.fill();
+      if (st.rays){
+        // the grazing sunbeam that sets the shadow's edge
+        ctx.save(); ctx.setLineDash([10, 9]); ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(255,236,190,' + (.85*a) + ')';
+        ctx.beginPath(); for (q=j0;q<=j1;q++) q === j0 ? ctx.moveTo(sx(xs[q]), sy(S[q])) : ctx.lineTo(sx(xs[q]), sy(S[q])); ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+  shade(SL, st.sunL);
+  shade(SR, st.sunR);
+
+  // sunlit rim of the surface
+  ctx.lineWidth = 3; ctx.lineJoin = 'round';
+  function rim(S, a, col){
+    if (a <= 0) return;
+    ctx.strokeStyle = col.replace('A', a);
+    ctx.beginPath(); var open = false;
+    for (var q=i0;q<=i1;q++){
+      if (S[q] <= gs[q]){ open ? ctx.lineTo(sx(xs[q]), sy(gs[q])) : ctx.moveTo(sx(xs[q]), sy(gs[q])); open = true; }
+      else open = false;
+    }
+    ctx.stroke();
+  }
+  rim(SL, st.sunL, 'rgba(248,244,232,A)');
+  rim(SR, st.sunR, 'rgba(248,244,232,A)');
+
+  // the region that never sees sunlight
+  if (st.psv > 0){
+    var pp = [];
+    for (i=i0;i<=i1;i++) if (xs[i] > hb0 && xs[i] < hb1 && P(i) > gs[i]) pp.push([xs[i], P(i), gs[i]]);
+    if (pp.length > 1){
+      ctx.save();
+      ctx.beginPath(); ctx.moveTo(sx(pp[0][0]), sy(pp[0][1]));
+      pp.forEach(function(p){ ctx.lineTo(sx(p[0]), sy(p[1])); });
+      for (var k2=pp.length-1;k2>=0;k2--) ctx.lineTo(sx(pp[k2][0]), sy(pp[k2][2]));
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(' + ICE + ',' + (.22*st.psv) + ')'; ctx.fill();
+      ctx.setLineDash([8, 7]); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(' + ICE + ',' + st.psv + ')'; ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // ice sparkles in the big crater (periodic, so the loop closes)
+  SPARK.forEach(function(p){
+    var a = Math.max(0, loopSin(t, p.k*3, p.ph));
+    if (a <= .05) return;
+    var x = sx(p.x), y = sy(iceTop) - 2, r = (5 + 5*a)*p.sz*Math.min(1.6, Math.max(.8, cam.s));
+    ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r*.22, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r*.22, y); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x - r, y); ctx.lineTo(x, y + r*.22); ctx.lineTo(x + r, y); ctx.lineTo(x, y - r*.22); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  });
+  return { gmin:gmin, tmax:tmax };
+}
+
+function drawImpacts(t){
+  IMPACTS.forEach(function(m){
+    var dt = t - m.t;
+    var px = sx(m.x), py = sy(ground(m.x));
+    if (dt > -.18 && dt < 0){
+      // incoming micrometeorite
+      var u = 1 + dt/.18, x0 = px - 180, y0 = py - 300;
+      var hx = x0 + (px - x0)*u, hy = y0 + (py - y0)*u;
+      var g = ctx.createLinearGradient(hx - 60, hy - 100, hx, hy);
+      g.addColorStop(0, 'rgba(255,220,160,0)'); g.addColorStop(1, 'rgba(255,240,210,.95)');
+      ctx.strokeStyle = g; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(hx - 60, hy - 100); ctx.lineTo(hx, hy); ctx.stroke();
+    }
+    if (dt >= 0 && dt < .9){
+      if (dt < .3){
+        var fr = ctx.createRadialGradient(px, py, 0, px, py, 46);
+        fr.addColorStop(0, 'rgba(255,255,240,' + (1 - dt/.3) + ')'); fr.addColorStop(1, 'rgba(255,255,240,0)');
+        ctx.fillStyle = fr; ctx.beginPath(); ctx.arc(px, py, 46, 0, 7); ctx.fill();
+      }
+      m.parts.forEach(function(p){
+        var x = px + p.vx*dt, y = py + p.vy*dt + .5*900*dt*dt;
+        if (y > py + 4) return;
+        ctx.fillStyle = p.ice ? 'rgba(205,239,255,' + (1 - dt/.9) + ')' : 'rgba(190,190,200,' + (1 - dt/.9) + ')';
+        ctx.beginPath(); ctx.arc(x, y, p.r, 0, 7); ctx.fill();
+      });
+    }
+  });
+}
+
+function iceFill(t){
+  if (t < 12.0) return 0;
+  if (t < 14.55) return ease(seg(t, 13.7, 14.4));
+  var hits = 0;
+  IMPACTS.forEach(function(m){ hits += seg(t, m.t, m.t + .25); });
+  return Math.max(0, 1 - hits/IMPACTS.length);
+}
+
+function fmtYears(n){ return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+
+// ---------- captions ----------
+var CAPS = [
+  { a:.3,  b:4.35, t:'Ice on the Moon is cold trapped in large permanently shadowed craters…' },
+  { a:4.6, b:8.1,  t:'…and in small topographic depressions' },
+  { a:8.4, b:14.5, t:'But their permanent shadows are shallow…' },
+  { a:14.6, b:16.7, t:'…and tiny impacts churn the ice away' },
+  { a:17.0, b:19.6, t:'So most small cold traps are likely empty' }
+];
+function caption(t){
+  CAPS.forEach(function(k){
+    var p = seg(t, k.a, k.a+.35) * (1-seg(t, k.b-.3, k.b));
+    if (p <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = p;
+    ctx.translate(0, (1-easeOut(seg(t,k.a,k.a+.35)))*14);
+    ctx.font = '500 42px Inter';
+    var lines = [k.t];
+    if (ctx.measureText(k.t).width > W - 140){
+      var words = k.t.split(' '), best = 1, bestD = 1e9;
+      for (var i=1;i<words.length;i++){
+        var d = Math.abs(ctx.measureText(words.slice(0,i).join(' ')).width - ctx.measureText(words.slice(i).join(' ')).width);
+        if (d < bestD){ bestD = d; best = i; }
+      }
+      lines = [words.slice(0,best).join(' '), words.slice(best).join(' ')];
+    }
+    var tw = Math.max.apply(null, lines.map(function(l){ return ctx.measureText(l).width; }));
+    var lh = 52, h = 34 + lh*lines.length, w = tw + 72, x = (W - w)/2, y = H - 26 - h;
+    rrect(x, y, w, h, Math.min(h/2, 40)); ctx.fillStyle = 'rgba(14,17,32,.86)'; ctx.fill();
+    ctx.fillStyle = '#F3F5F9'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    lines.forEach(function(l, i){ ctx.fillText(l, W/2, y + 17 + lh*(i + .5) + 1); });
+    ctx.restore();
+  });
+}
+
+// ---------- timeline ----------
+function render(t){
+  cam = camAt(t);
+  drawSky();
+
+  // Sun low on the horizon. While zoomed on the bowl it circles the pole once: left to right
+  // across the far side, then back along the near side.
+  var lowE = Math.tan(5*D2R), bowlE = Math.tan(11*D2R);
+  var tanE = lowE + (bowlE - lowE)*(ease(seg(t, 8.1, 9.3)) - ease(seg(t, 16.7, 18.2)));
+  var phi = 2*Math.PI*ease(seg(t, 9.4, 13.8));
+  var sunL = 1, sunR = 0;
+  var horizonY = Math.min(sy(0) - 40, 520);
+  drawSun(W/2 - Math.cos(phi)*(W/2 - 70), horizonY, 1);
+
+  var inBowl = t > 9.1 && t < 16.9;
+  var st = {
+    tanE: tanE, sunL: sunL, sunR: sunR, bowl: t >= 9.3 && t < 16.7, phi: phi,
+    rays: inBowl ? (seg(t, 9.3, 9.7) * (1 - seg(t, 14.4, 14.7))) : 0,
+    psv: seg(t, 9.5, 9.9) * (1 - seg(t, 14.1, 14.5)),
+    iceF: iceFill(t)
+  };
+  if (st.rays === 0){ st.rays = false; }
+  var info = drawWorld(t, st);
+  if (t > 14.4 && t < 16.85) drawImpacts(t);
+
+  // labels
+  var la = seg(t, 1.0, 1.4) * (1 - seg(t, 4.0, 4.4));
+  if (la > 0){
+    var ix = sx(-60), iy = sy(ground(0) + 5);
+    ctx.strokeStyle = 'rgba(243,245,249,' + (.6*la) + ')'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(ix, iy - 4); ctx.lineTo(ix - 30, iy - 120); ctx.stroke();
+    pill('ICE', ix - 30, iy - 140, la);
+  }
+  var pa = seg(t, 13.4, 13.7) * (1 - seg(t, 14.1, 14.5));
+  if (pa > 0){
+    var px = sx(HERO.c), py = sy(info.gmin);
+    ctx.strokeStyle = 'rgba(243,245,249,' + (.6*pa) + ')'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(px, py - 14); ctx.lineTo(px, py - 150); ctx.stroke();
+    pill('NEVER SUNLIT', px, py - 172, pa);
+  }
+  var ya = seg(t, 14.5, 14.8) * (1 - seg(t, 16.6, 16.9));
+  if (ya > 0){
+    var years = Math.round(300 * easeOut(seg(t, 14.6, 16.5))) * 1000;
+    pill(fmtYears(years) + ' years', W - 170, 70, ya);
+  }
+
+  caption(t);
+}
+
+window.renderAt = function(t){ render(t); };
+window.ready = document.fonts.load('500 42px Inter').then(function(){ return document.fonts.load('600 25px Inter'); });
+if (!/[?&]still/.test(location.search)){
+  var t0 = null;
+  ready.then(function(){ requestAnimationFrame(function loop(ts){ if (t0 === null) t0 = ts; render(((ts-t0)/1000) % DUR); requestAnimationFrame(loop); }); });
+}
+</script>
+</body>
+</html>
