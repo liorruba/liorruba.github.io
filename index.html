@@ -838,6 +838,9 @@ footer{position:relative;margin-top:24px}
   </ol>
 
   <p class="subhead">Conference presentations</p>
+  <div class="pub-tools">
+    <div class="chips" id="conf-chips" role="group" aria-label="Filter conference presentations by topic"></div>
+  </div>
   <ol class="pubs" id="conf-list">
     <li>Rubanenko, L., Paige, D.A., Moon, S. and Kakaria, R., 2023. CNN-detected boulders across the Jezero western delta fan indicate significantly higher flood discharge compared to previous estimates. AGU23.</li>
     <li>Prieur, N.C., Amaro, B., Gonzalez, E., Rubanenko, L., Kerner, H.R., Xiao, Z., Werner, S.C. and Lapôtre, M.G.A., 2022. Deep learning for boulder detection on planetary surfaces. AGU Fall Meeting, pp.P23A-02.</li>
@@ -1409,54 +1412,55 @@ var REDUCE_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matche
     });
   }
 
-  var active = 'all';
+  // Each list has its own topic chips; counts and filtering apply to that list only.
+  var confChipBox = document.getElementById('conf-chips');
+  var FILTERS = [
+    { ol: list, box: chipBox, active: 'all' },
+    { ol: confList, box: confChipBox, active: 'all' }
+  ].filter(function(f){ return f.ol && f.box; });
 
-  function applyFilter(){
-    [list, confList].forEach(function(ol){
-      if (!ol) return;
-      var prevYear = null;
-      Array.prototype.forEach.call(ol.children, function(li){
-        var show = active === 'all' || (' ' + li.getAttribute('data-topics') + ' ').indexOf(' ' + active + ' ') !== -1;
-        li.hidden = !show;
-        if (!show) return;
-        var y = li.querySelector('.py');
-        var yr = y ? y.textContent : '';
-        li.classList.toggle('same-year', yr === prevYear);
-        prevYear = yr;
-      });
+  function hasTopic(li, key){
+    return key === 'all' || (' ' + li.getAttribute('data-topics') + ' ').indexOf(' ' + key + ' ') !== -1;
+  }
+
+  function applyFilter(f){
+    var prevYear = null;
+    Array.prototype.forEach.call(f.ol.children, function(li){
+      var show = hasTopic(li, f.active);
+      li.hidden = !show;
+      if (!show) return;
+      var y = li.querySelector('.py');
+      var yr = y ? y.textContent : '';
+      li.classList.toggle('same-year', yr === prevYear);
+      prevYear = yr;
     });
   }
 
-  function buildChips(){
-    if (!chipBox) return;
-    var all = [].slice.call(list.children).concat(confList ? [].slice.call(confList.children) : []);
-    function count(key){
-      return all.filter(function(li){
-        return key === 'all' || (' ' + li.getAttribute('data-topics') + ' ').indexOf(' ' + key + ' ') !== -1;
-      }).length;
-    }
+  function buildChips(f){
+    var items = [].slice.call(f.ol.children);
     var defs = [{ key:'all', label:'All' }].concat(TOPICS);
-    chipBox.innerHTML = defs.map(function(t){
-      return '<button type="button" class="chip" data-key="' + t.key + '" aria-pressed="' + (t.key === active) + '">'
-        + t.label + '<span class="n">' + count(t.key) + '</span></button>';
+    f.box.innerHTML = defs.map(function(t){
+      var n = items.filter(function(li){ return hasTopic(li, t.key); }).length;
+      if (t.key !== 'all' && !n) return '';
+      return '<button type="button" class="chip" data-key="' + t.key + '" aria-pressed="' + (t.key === f.active) + '">'
+        + t.label + '<span class="n">' + n + '</span></button>';
     }).join('');
   }
 
-  if (chipBox){
-    chipBox.addEventListener('click', function(e){
+  FILTERS.forEach(function(f){
+    f.box.addEventListener('click', function(e){
       var btn = e.target.closest('.chip');
       if (!btn) return;
-      active = btn.getAttribute('data-key');
-      [].forEach.call(chipBox.children, function(b){ b.setAttribute('aria-pressed', b === btn); });
-      applyFilter();
+      f.active = btn.getAttribute('data-key');
+      [].forEach.call(f.box.children, function(b){ b.setAttribute('aria-pressed', b === btn); });
+      applyFilter(f);
     });
-  }
+  });
 
   function refresh(){
     enhance(list);
     enhance(confList);
-    buildChips();
-    applyFilter();
+    FILTERS.forEach(function(f){ buildChips(f); applyFilter(f); });
   }
 
   refresh();
