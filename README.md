@@ -29,3 +29,14 @@ ffmpeg -framerate 30 -i frames/%04d.png -vf "scale=1200:-2" -c:v libvpx-vp9 -b:v
 ```
 
 Each should come out around 0.5–2 MB. Prefer this over GIF, which is 10–20× larger for the same clip.
+
+### Sources
+
+`animations/` holds the source for each clip: a self-contained canvas page (open it in a browser to preview
+the loop live) and `render-frames.js`, which renders it to PNG frames with Playwright:
+
+```sh
+cd animations && node render-frames.js all dunes-wind   # writes frames_dunes-wind/0000.png ...
+```
+
+Then encode with the ffmpeg command above and copy the MP4 and a poster frame into `videos/`.

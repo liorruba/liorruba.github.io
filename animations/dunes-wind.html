@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@font-face{font-family:"Inter";src:url("fonts/inter-latin.woff2") format("woff2");font-weight:100 900}
+html,body{margin:0;background:#161A2B}
+canvas{display:block}
+</style>
+</head>
+<body>
+<canvas id="c" width="1200" height="800"></canvas>
+<script>
+var W = 1200, H = 800, DUR = 20.4;
+var c = document.getElementById('c'), ctx = c.getContext('2d');
+
+// ---------- helpers ----------
+function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
+function seg(t,a,b){ return clamp((t-a)/(b-a), 0, 1); }
+function ease(x){ return x<.5 ? 4*x*x*x : 1-Math.pow(-2*x+2,3)/2; }
+function easeOut(x){ return 1-Math.pow(1-x,3); }
+function back(x){ var k=1.7; return 1+(k+1)*Math.pow(x-1,3)+k*Math.pow(x-1,2); }
+function rng(seed){ return function(){ seed = (seed*16807) % 2147483647; return (seed-1)/2147483646; }; }
+function rrect(x,y,w,h,r){ ctx.beginPath(); ctx.roundRect(x,y,w,h,r); }
+
+// ---------- static ground ----------
+var ground = document.createElement('canvas'); ground.width = W; ground.height = H;
+(function(){
+  var g = ground.getContext('2d'), R = rng(7);
+  var grd = g.createRadialGradient(W*.42, H*.4, 50, W*.5, H*.5, W*.75);
+  grd.addColorStop(0, '#CF7447'); grd.addColorStop(1, '#A9532F');
+  g.fillStyle = grd; g.fillRect(0,0,W,H);
+  // sand ripples: short wavy strokes across the wind
+  g.strokeStyle = 'rgba(120,48,24,.16)'; g.lineWidth = 2.5; g.lineCap = 'round';
+  for (var i=0;i<170;i++){
+    var x = R()*W, y = R()*H, L = 14+R()*22;
+    g.beginPath(); g.moveTo(x, y-L); g.quadraticCurveTo(x+6, y, x, y+L); g.stroke();
+  }
+  // speckles
+  for (i=0;i<700;i++){
+    g.fillStyle = R()<.6 ? 'rgba(95,36,18,.22)' : 'rgba(255,210,165,.16)';
+    g.beginPath(); g.arc(R()*W, R()*H, 1+R()*2.6, 0, 7); g.fill();
+  }
+  // cartoon craters
+  [[140,610,46],[1070,300,34],[760,120,22],[330,90,16],[640,700,18]].forEach(function(k){
+    var x=k[0], y=k[1], r=k[2];
+    g.fillStyle = 'rgba(110,40,20,.28)'; g.beginPath(); g.arc(x,y,r,0,7); g.fill();
+    g.lineWidth = r*.22; g.lineCap='round';
+    g.strokeStyle = 'rgba(80,28,14,.45)'; g.beginPath(); g.arc(x,y,r*.92,Math.PI*.95,Math.PI*1.8); g.stroke();
+    g.strokeStyle = 'rgba(255,205,160,.4)'; g.beginPath(); g.arc(x,y,r*.92,-Math.PI*.1,Math.PI*.75); g.stroke();
+  });
+})();
+
+// ---------- dunes ----------
+// A barchan seen from above: rounded back facing the wind (left), horns pointing downwind (right).
+function dunePath(cx, cy, s){
+  var p = new Path2D();
+  p.moveTo(cx+.95*s, cy-.8*s);
+  p.bezierCurveTo(cx+.35*s, cy-1.12*s, cx-.8*s, cy-.78*s, cx-.8*s, cy);
+  p.bezierCurveTo(cx-.8*s, cy+.78*s, cx+.35*s, cy+1.12*s, cx+.95*s, cy+.8*s);
+  p.bezierCurveTo(cx+.58*s, cy+.55*s, cx+.28*s, cy+.42*s, cx+.28*s, cy);
+  p.bezierCurveTo(cx+.28*s, cy-.42*s, cx+.58*s, cy-.55*s, cx+.95*s, cy-.8*s);
+  p.closePath();
+  return p;
+}
+function slipPath(cx, cy, s){
+  var p = new Path2D();
+  p.moveTo(cx+.95*s, cy-.8*s);
+  p.bezierCurveTo(cx+.3*s, cy-.72*s, cx-.08*s, cy-.45*s, cx-.08*s, cy);
+  p.bezierCurveTo(cx-.08*s, cy+.45*s, cx+.3*s, cy+.72*s, cx+.95*s, cy+.8*s);
+  p.bezierCurveTo(cx+.58*s, cy+.55*s, cx+.28*s, cy+.42*s, cx+.28*s, cy);
+  p.bezierCurveTo(cx+.28*s, cy-.42*s, cx+.58*s, cy-.55*s, cx+.95*s, cy-.8*s);
+  p.closePath();
+  return p;
+}
+function crestPath(cx, cy, s){
+  var p = new Path2D();
+  p.moveTo(cx+.9*s, cy-.78*s);
+  p.bezierCurveTo(cx+.3*s, cy-.72*s, cx-.08*s, cy-.45*s, cx-.08*s, cy);
+  p.bezierCurveTo(cx-.08*s, cy+.45*s, cx+.3*s, cy+.72*s, cx+.9*s, cy+.78*s);
+  return p;
+}
+function drawDune(d){
+  ctx.save(); ctx.translate(10, 12);
+  ctx.fillStyle = 'rgba(70,22,10,.25)'; ctx.fill(dunePath(d.x, d.y, d.s));
+  ctx.restore();
+  var body = dunePath(d.x, d.y, d.s);
+  var g = ctx.createLinearGradient(d.x-d.s, d.y-d.s, d.x+d.s*.3, d.y+d.s);
+  g.addColorStop(0, '#F0AA6C'); g.addColorStop(1, '#D9844E');
+  ctx.fillStyle = g; ctx.fill(body);
+  ctx.fillStyle = '#9A4829'; ctx.fill(slipPath(d.x, d.y, d.s));
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#FBD2A0'; ctx.lineWidth = Math.max(2, d.s*.03); ctx.stroke(crestPath(d.x, d.y, d.s));
+}
+
+var DUNES = [
+  { x0:470, y:395, s:150, main:true },
+  { x0:150, y:190, s:58 },
+  { x0:930, y:610, s:72 },
+  { x0:960, y:150, s:46 },
+  { x0:250, y:640, s:40 }
+];
+function dunesAt(t){
+  return DUNES.map(function(d){ return { x: d.x0 + t*(d.main ? 13 : 22*60/Math.max(d.s,40)*.5), y:d.y, s:d.s, main:d.main }; });
+}
+
+// ---------- wind and sand ----------
+var R = rng(3), STREAKS = [], GRAINS = [];
+for (var i=0;i<34;i++) STREAKS.push({ y:R()*H, x:R()*(W+400), L:50+R()*90, v:380+R()*170, w:R()*6.28, a:.25+R()*.3 });
+for (i=0;i<46;i++) GRAINS.push({ oy:(R()-.5)*1.3, u0:R(), rate:.55+R()*.35, sz:.8+R()*.6 });
+
+function drawStreaks(t, alpha){
+  ctx.lineCap = 'round';
+  STREAKS.forEach(function(k){
+    var x = (k.x + k.v*t) % (W+400) - 200;
+    var y = k.y + Math.sin(t*2.2 + k.w)*6;
+    ctx.strokeStyle = 'rgba(255,246,232,' + (k.a*alpha).toFixed(3) + ')';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x+k.L*.5, y-5, x+k.L, y); ctx.stroke();
+  });
+}
+function drawGrains(t, d){
+  GRAINS.forEach(function(g){
+    var u = (g.u0 + t*g.rate) % 1;
+    var x0 = d.x - 1.55*d.s, x1 = d.x - .02*d.s;           // blown up the back, dropped over the crest
+    var x = x0 + (x1-x0)*u, y = d.y + g.oy*d.s*(1-.35*u);
+    var hop = Math.abs(Math.sin(u*Math.PI*5));
+    var a = seg(u,0,.08) * (1-seg(u,.86,1));
+    var r = (2.2 + 3.2*hop) * g.sz;
+    ctx.fillStyle = 'rgba(80,28,12,' + (.25*a) + ')';
+    ctx.beginPath(); ctx.arc(x+4+hop*8, y+5+hop*9, r*.8, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(255,228,188,' + a + ')';
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  });
+}
+
+// ---------- spacecraft ----------
+function drawOrbiter(x, y, rot){
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(rot);
+  [-1,1].forEach(function(sd){
+    ctx.fillStyle = '#C9D3E3'; ctx.fillRect(sd*44-2, -3, sd*18, 6);
+    var px = sd>0 ? 60 : -150;
+    rrect(px, -20, 90, 40, 5); ctx.fillStyle = '#2E4E8C'; ctx.fill();
+    ctx.strokeStyle = 'rgba(143,211,232,.75)'; ctx.lineWidth = 1.5;
+    for (var k=1;k<4;k++){ ctx.beginPath(); ctx.moveTo(px+k*22.5, -20); ctx.lineTo(px+k*22.5, 20); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px+90, 0); ctx.stroke();
+    rrect(px, -20, 90, 40, 5); ctx.strokeStyle = '#9FB4D8'; ctx.lineWidth = 2.5; ctx.stroke();
+  });
+  rrect(-44,-30,88,60,10); ctx.fillStyle = '#EEF2F8'; ctx.fill();
+  ctx.strokeStyle = '#B7C3D6'; ctx.lineWidth = 3; ctx.stroke();
+  ctx.fillStyle = '#8FD3E8'; ctx.fillRect(-44, 8, 88, 8);
+  ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.arc(0,-8,13,0,7); ctx.fill();
+  ctx.strokeStyle = '#B7C3D6'; ctx.lineWidth = 3; ctx.stroke();
+  ctx.fillStyle = '#B7C3D6'; ctx.beginPath(); ctx.arc(0,-8,4,0,7); ctx.fill();
+  ctx.restore();
+}
+
+function drawBrackets(x, y, w, h, alpha){
+  var L = Math.min(w,h)*.18;
+  ctx.strokeStyle = 'rgba(255,255,255,' + alpha + ')'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  [[x,y,1,1],[x+w,y,-1,1],[x,y+h,1,-1],[x+w,y+h,-1,-1]].forEach(function(k){
+    ctx.beginPath(); ctx.moveTo(k[0], k[1]+k[3]*L); ctx.lineTo(k[0], k[1]); ctx.lineTo(k[0]+k[2]*L, k[1]); ctx.stroke();
+  });
+}
+
+// ---------- AI overlay ----------
+var ICE = '143,211,232';
+function traceDune(d, p, width){
+  if (p <= 0) return;
+  var path = dunePath(d.x, d.y, d.s), L = 7.2*d.s;
+  ctx.save();
+  ctx.fillStyle = 'rgba(' + ICE + ',' + (.22*seg(p,.85,1)) + ')'; ctx.fill(path);
+  ctx.setLineDash([L*p, L*2]);
+  ctx.lineWidth = width; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.shadowColor = 'rgba(' + ICE + ',.9)'; ctx.shadowBlur = 14;
+  ctx.strokeStyle = 'rgb(' + ICE + ')'; ctx.stroke(path);
+  ctx.restore();
+}
+function arrow(x0, y, x1, p, width, head){
+  if (p <= 0) return;
+  var x = x0 + (x1-x0)*easeOut(p);
+  ctx.save();
+  ctx.shadowColor = 'rgba(' + ICE + ',.8)'; ctx.shadowBlur = 12;
+  ctx.strokeStyle = ctx.fillStyle = 'rgb(' + ICE + ')';
+  ctx.lineWidth = width; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x - head*.6, y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-head, y-head*.62); ctx.lineTo(x-head, y+head*.62); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function tag(text, x, y, p){
+  if (p <= 0) return;
+  var s = back(p);
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  ctx.font = '600 24px Inter'; var w = ctx.measureText(text).width + 30;
+  rrect(-w/2, -21, w, 42, 21); ctx.fillStyle = 'rgb(' + ICE + ')'; ctx.fill();
+  ctx.fillStyle = '#0E1120'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, 0, 1);
+  ctx.restore();
+}
+
+// ---------- captions ----------
+// Master timeline (seconds). The dune scene is drafted in its own time and played a little faster.
+var DUR_ = 20.4, TS0 = 6.8, K = 8.95/6.9, TS1 = TS0 + 6.9, TR1 = TS1 + 2.6;
+function sT(x){ return TS0 + x/K; }
+var CAPS = [
+  { a:.25,       b:2.3,      t:'Mars has no weather stations to measure its winds' },
+  { a:2.45,      b:4.4,      t:'But it has over a million dunes that act as wind vanes' },
+  { a:sT(.25),   b:sT(3.0),  t:'Wind blows sand into crescent-shaped dunes' },
+  { a:sT(3.25),  b:sT(5.35), t:'Spacecraft photograph them from orbit' },
+  { a:sT(5.6),   b:TS1,      t:'AI finds each dune — its horns point downwind' },
+  { a:TS1 + .2,  b:TR1 - .1, t:'Dune by dune, we map the wind around the ice cap' },
+  { a:TR1 + .3,  b:DUR_ - 1, t:'Together they reveal winds swirling around the pole' }
+];
+function caption(t){
+  CAPS.forEach(function(k){
+    var p = seg(t, k.a, k.a+.35) * (1-seg(t, k.b-.3, k.b));
+    if (p <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = p;
+    ctx.translate(0, (1-easeOut(seg(t,k.a,k.a+.35)))*14);
+    // large enough to read when the video is shown ~360 px wide on a phone
+    ctx.font = '500 42px Inter';
+    var lines = [k.t];
+    if (ctx.measureText(k.t).width > W - 140){
+      var words = k.t.split(' '), best = 1, bestD = 1e9;
+      for (var i=1;i<words.length;i++){
+        var d = Math.abs(ctx.measureText(words.slice(0,i).join(' ')).width - ctx.measureText(words.slice(i).join(' ')).width);
+        if (d < bestD){ bestD = d; best = i; }
+      }
+      lines = [words.slice(0,best).join(' '), words.slice(best).join(' ')];
+    }
+    var tw = Math.max.apply(null, lines.map(function(l){ return ctx.measureText(l).width; }));
+    var lh = 52, h = 34 + lh*lines.length, w = tw + 72, x = (W - w)/2, y = H - 26 - h;
+    rrect(x, y, w, h, Math.min(h/2, 40)); ctx.fillStyle = 'rgba(14,17,32,.86)'; ctx.fill();
+    ctx.fillStyle = '#F3F5F9'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    lines.forEach(function(l, i){ ctx.fillText(l, W/2, y + 17 + lh*(i + .5) + 1); });
+    ctx.restore();
+  });
+}
+
+// ---------- timeline ----------
+var SNAP = 4.85;   // the moment the photo is taken
+
+function renderScene(t){
+  var photo = t >= SNAP;
+  var ts = photo ? SNAP : t;                // after the snapshot the scene is frozen
+  var ds = dunesAt(ts), main = ds[0];
+
+  ctx.save();
+  if (photo) ctx.filter = 'grayscale(1) contrast(1.12) brightness(1.02)';
+  ctx.drawImage(ground, 0, 0);
+  ds.slice(1).forEach(drawDune); drawDune(main);
+  if (!photo) drawGrains(ts, main);
+  ctx.restore();
+  if (!photo) drawStreaks(t, 1 - .5*seg(t, 3.2, 4));
+
+  // spacecraft pass
+  var op = seg(t, 2.9, 6.3);
+  if (op > 0 && op < 1 && !photo) drawOrbiter(-220 + op*1640, 150 + Math.sin(op*3)*18, -.05 + op*.1);
+
+  // viewfinder locks on, then shutter
+  var vf = seg(t, 3.9, 4.75);
+  if (t >= 3.8 && t < SNAP + .15){
+    var e = ease(vf), bx = main.x - 1.15*main.s, by = main.y - 1.2*main.s, bw = 2.35*main.s, bh = 2.4*main.s;
+    drawBrackets(40 + (bx-40)*e, 40 + (by-40)*e, (W-80) + (bw-(W-80))*e, (H-80) + (bh-(H-80))*e, seg(t,3.8,4.0));
+  }
+  if (photo){
+    // photo look: vignette, frame, label
+    var vg = ctx.createRadialGradient(W/2, H/2, H*.35, W/2, H/2, H*.95);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.35)');
+    ctx.fillStyle = vg; ctx.fillRect(0,0,W,H);
+    ctx.font = '500 20px Inter'; ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('ORBITER IMAGE', 34, 30);
+    ctx.fillStyle = 'rgba(255,90,90,.9)'; ctx.beginPath(); ctx.arc(W-44, 42, 8, 0, 7); ctx.fill();
+
+    // AI scan line
+    var sc = seg(t, 5.35, 6.05);
+    if (sc > 0 && sc < 1){
+      var sy = sc*H;
+      var lg = ctx.createLinearGradient(0, sy-70, 0, sy);
+      lg.addColorStop(0, 'rgba(' + ICE + ',0)'); lg.addColorStop(1, 'rgba(' + ICE + ',.35)');
+      ctx.fillStyle = lg; ctx.fillRect(0, sy-70, W, 70);
+      ctx.fillStyle = 'rgb(' + ICE + ')'; ctx.fillRect(0, sy-2, W, 3);
+    }
+    // outlines: the big dune first, then the rest of the field
+    traceDune(main, ease(seg(t, 6.0, 7.3)), 5);
+    ds.slice(1).forEach(function(d, i){ traceDune(d, ease(seg(t, 6.6 + i*.12, 7.3 + i*.12)), 3); });
+    tag('barchan  98%', main.x + .1*main.s, main.y - 1.18*main.s, seg(t, 7.1, 7.45));
+
+    // horns glow, then the wind arrow
+    var hp = seg(t, 7.45, 7.8);
+    if (hp > 0){
+      [[.95,-.8],[.95,.8]].forEach(function(k){
+        var pulse = 1 + .25*Math.sin((t-7.45)*9);
+        ctx.fillStyle = 'rgba(255,255,255,' + hp + ')';
+        ctx.beginPath(); ctx.arc(main.x + k[0]*main.s, main.y + k[1]*main.s, 9*pulse*hp, 0, 7); ctx.fill();
+      });
+    }
+    arrow(main.x - 1.05*main.s, main.y, main.x + 1.75*main.s, seg(t, 7.75, 8.35), 9, 34);
+    var wl = seg(t, 8.2, 8.5);
+    if (wl > 0){
+      ctx.save(); ctx.globalAlpha = wl; ctx.font = '600 26px Inter'; ctx.fillStyle = 'rgb(' + ICE + ')';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 8;
+      ctx.fillText('WIND', main.x + 1.35*main.s, main.y - 18);
+      ctx.restore();
+    }
+    ds.slice(1).forEach(function(d, i){
+      arrow(d.x - 1.0*d.s, d.y, d.x + 1.9*d.s, seg(t, 8.35 + i*.1, 8.85 + i*.1), 5, 18);
+    });
+  }
+
+  // shutter flash
+  var fl = t - SNAP;
+  if (fl >= 0 && fl < .45){ ctx.fillStyle = 'rgba(255,255,255,' + (1-fl/.45)*.95 + ')'; ctx.fillRect(0,0,W,H); }
+
+}
+
+// ---------- step 4: zoom out to the polar dune field, then to the whole planet ----------
+var D2R = Math.PI/180;
+
+function zoomTransform(c, S0, z){
+  // z = 0: the rect of width W/S0 centred on c fills the screen; z = 1: no zoom.
+  var S = Math.exp(Math.log(S0)*(1-z)), k = (S-1)/(S0-1);
+  ctx.translate(c.x + (W/2 - c.x)*k, c.y + (H/2 - c.y)*k);
+  ctx.scale(S, S);
+  ctx.translate(-c.x, -c.y);
+}
+
+// Regional view, north up, the pole just above the frame. East points to the right at the centre,
+// and curves around the cap edge towards the sides.
+var RC = { x:600, y:-900 }, R_CAP = 1180, R_ERG0 = 1215, R_ERG1 = 1440;
+var TILE_R = { x:600, y:-900 + 1500, w:120, h:80 };
+function rpt(th, rad){ return [RC.x + rad*Math.sin(th), RC.y + rad*Math.cos(th)]; }
+
+var RDUNES = [], RSTREAK = [];
+(function(){
+  var r = rng(21);
+  for (var i=0; RDUNES.length < 150 && i < 4000; i++){
+    var th = (r()-.5)*1.15, rad = R_ERG0 + 28 + r()*(R_ERG1 - R_ERG0 - 56), p = rpt(th, rad);
+    if (p[0] < -20 || p[0] > W+20 || p[1] > H+20) continue;
+    if (Math.abs(p[0]-TILE_R.x) < 78 && Math.abs(p[1]-TILE_R.y) < 54) continue;
+    if (!RDUNES.every(function(d){ return Math.hypot(d.x-p[0], d.y-p[1]) > 36; })) continue;
+    RDUNES.push({ x:p[0], y:p[1], s:9 + r()*8, ang:-th, at: 9.95 + Math.abs(p[0]-600)/600*1.1 + r()*.25 });
+  }
+  // a few lighter dunes out on the plains around the photo's spot
+  for (i=0; i < 3000 && RDUNES.filter(function(d){ return d.plain; }).length < 14; i++){
+    th = (r()-.5)*.8; rad = 1475 + r()*190; p = rpt(th, rad);
+    if (p[1] > H - 20 || p[0] < 20 || p[0] > W - 20) continue;
+    if (Math.abs(p[0]-TILE_R.x) < 82 && Math.abs(p[1]-TILE_R.y) < 56) continue;
+    if (!RDUNES.every(function(d){ return Math.hypot(d.x-p[0], d.y-p[1]) > 40; })) continue;
+    RDUNES.push({ x:p[0], y:p[1], s:9 + r()*6, ang:-th, plain:true, at: 9.95 + Math.abs(p[0]-600)/600*1.1 + r()*.25 });
+  }
+  for (i=0;i<80;i++) RSTREAK.push({ th0:(r()-.5)*1.3, rad:R_ERG0 - 70 + r()*(R_ERG1 - R_ERG0 + 190), off:r()*1.2, L:.04 + r()*.05 });
+})();
+
+var regionGround = null;
+function regionBase(){
+  if (regionGround) return regionGround;
+  regionGround = document.createElement('canvas'); regionGround.width = W; regionGround.height = H;
+  var g = regionGround.getContext('2d'), r = rng(5), k, th, p;
+  var grd = g.createLinearGradient(0, 0, 0, H);
+  grd.addColorStop(0, '#D98150'); grd.addColorStop(1, '#D27749');
+  g.fillStyle = grd; g.fillRect(0, 0, W, H);
+  for (k=0;k<900;k++){
+    g.fillStyle = r()<.6 ? 'rgba(95,36,18,.2)' : 'rgba(255,210,165,.14)';
+    g.beginPath(); g.arc(r()*W, r()*H, 1 + r()*2.4, 0, 7); g.fill();
+  }
+  // dark sand sea hugging the cap
+  g.beginPath();
+  for (k=0;k<=120;k++){ th = -.8 + 1.6*k/120; p = rpt(th, R_ERG1 + 16*Math.sin(th*23) + 8*Math.sin(th*57)); k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); }
+  for (k=120;k>=0;k--){ th = -.8 + 1.6*k/120; p = rpt(th, R_ERG0 - 30); g.lineTo(p[0], p[1]); }
+  g.closePath(); g.fillStyle = '#5E3527'; g.fill();
+  // the ice cap
+  g.beginPath();
+  for (k=0;k<=120;k++){ th = -.8 + 1.6*k/120; p = rpt(th, R_CAP + 9*Math.sin(th*17) + 5*Math.sin(th*41)); k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); }
+  g.lineTo(W+50, -50); g.lineTo(-50, -50); g.closePath();
+  var cg = g.createLinearGradient(0, 0, 0, 320);
+  cg.addColorStop(0, '#FBF7F2'); cg.addColorStop(1, '#E9DFD6');
+  g.fillStyle = cg; g.fill();
+  g.strokeStyle = 'rgba(150,105,85,.35)'; g.lineWidth = 8; g.stroke();
+  // spiral troughs cut into the ice
+  g.lineCap = 'round';
+  for (var s=0;s<5;s++){
+    g.beginPath();
+    for (k=0;k<=80;k++){ th = -.8 + 1.6*k/80; p = rpt(th, R_CAP - 80 - s*92 + th*140); k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); }
+    g.strokeStyle = 'rgba(176,132,110,.42)'; g.lineWidth = 13; g.stroke();
+    g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 3; g.stroke();
+  }
+  return regionGround;
+}
+
+function drawMiniDune(d){
+  ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.ang);
+  ctx.save(); ctx.translate(3, 4); ctx.fillStyle = 'rgba(20,8,4,.3)'; ctx.fill(dunePath(0, 0, d.s)); ctx.restore();
+  var g = ctx.createLinearGradient(-d.s, -d.s, d.s*.3, d.s);
+  g.addColorStop(0, d.plain ? '#F0AA6C' : '#94593D'); g.addColorStop(1, d.plain ? '#D9844E' : '#6E3E2A');
+  ctx.fillStyle = g; ctx.fill(dunePath(0, 0, d.s));
+  ctx.fillStyle = d.plain ? '#9A4829' : '#3F2219'; ctx.fill(slipPath(0, 0, d.s));
+  ctx.strokeStyle = d.plain ? '#FBD2A0' : '#B98262'; ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.stroke(crestPath(0, 0, d.s));
+  ctx.restore();
+}
+
+function pill(text, x, y, a){
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.font = '600 25px Inter';
+  var w = ctx.measureText(text).width + 34;
+  rrect(x - w/2, y - 22, w, 44, 22); ctx.fillStyle = 'rgba(14,17,32,.72)'; ctx.fill();
+  ctx.fillStyle = '#F3F5F9'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x, y + 1);
+  ctx.restore();
+}
+
+function drawRegion(t, live){
+  ctx.drawImage(regionBase(), 0, 0);
+  RDUNES.forEach(drawMiniDune);
+  RDUNES.forEach(function(d){
+    var p = seg(t, d.at, d.at + .25);
+    if (p <= 0) return;
+    ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.ang);
+    arrow(-1.0*d.s, 0, 1.9*d.s, p, 3, 10);
+    ctx.restore();
+  });
+  if (!live) return;
+  // wind sweeping along the edge of the cap
+  var sa = seg(t, 10.9, 11.2) * (1 - seg(t, 11.6, 11.9));
+  if (sa > 0){
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineWidth = 3;
+    RSTREAK.forEach(function(q){
+      var u = ((t - 10.9 + q.off) % 1.2) / 1.2, th = q.th0 + u*.22;
+      ctx.strokeStyle = 'rgba(255,255,255,' + (.6*sa*Math.sin(Math.PI*u)) + ')';
+      ctx.beginPath(); ctx.arc(RC.x, RC.y, q.rad, Math.PI/2 - (th + q.L), Math.PI/2 - th); ctx.stroke();
+    });
+    ctx.restore();
+  }
+  var la = seg(t, 10.1, 10.5) * (1 - seg(t, 11.45, 11.85));
+  pill('NORTH POLAR ICE CAP', 600, 120, la);
+  pill('DUNE FIELD', 190, 470, la);
+}
+
+function feathered(src){
+  var out = document.createElement('canvas'); out.width = W; out.height = H;
+  var g = out.getContext('2d');
+  g.drawImage(src, 0, 0);
+  g.globalCompositeOperation = 'destination-in';
+  var gx = g.createLinearGradient(0, 0, W, 0);
+  gx.addColorStop(0, 'rgba(0,0,0,0)'); gx.addColorStop(.22, '#000'); gx.addColorStop(.78, '#000'); gx.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gx; g.fillRect(0, 0, W, H);
+  var gy = g.createLinearGradient(0, 0, 0, H);
+  gy.addColorStop(0, 'rgba(0,0,0,0)'); gy.addColorStop(.2, '#000'); gy.addColorStop(.72, '#000'); gy.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gy; g.fillRect(0, 0, W, H);
+  return out;
+}
+// Frozen frames used as tiles while zooming, each with a hard and a feathered copy.
+var SNAPS = {};
+function snapshot(key, draw){
+  if (!SNAPS[key]){
+    var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    var keep = ctx; ctx = cv.getContext('2d'); draw(); ctx = keep;
+    SNAPS[key] = { hard:cv, soft:feathered(cv) };
+  }
+  return SNAPS[key];
+}
+function regionOut(){ return snapshot('regionOut', function(){ drawRegion(11.9, false); }); }
+function regionIn(){ return snapshot('regionIn', function(){ drawRegion(0, false); }); }
+function sceneStart(){ return snapshot('scene0', function(){ renderScene(0); }); }
+function photoFrame(){ return snapshot('photo', function(){ renderScene(8.95); }).hard; }
+
+// Global view: orthographic, looking down on the north pole region.
+var GX = 600, GY = 370, GR = 300, LAT0 = 60*D2R;
+function lon0(t){ return 0; }
+function proj(lat, lon, t){
+  var dl = lon - lon0(t);
+  return { x: GX + GR*Math.cos(lat)*Math.sin(dl),
+           y: GY - GR*(Math.cos(LAT0)*Math.sin(lat) - Math.sin(LAT0)*Math.cos(lat)*Math.cos(dl)),
+           v: Math.sin(LAT0)*Math.sin(lat) + Math.cos(LAT0)*Math.cos(lat)*Math.cos(dl) };
+}
+// Cartoon circulation (east, north): an eastward polar vortex around the north pole,
+// blended into simple tropical and mid-latitude flow further south.
+function wind(lat, lon){
+  var L = lat/D2R;
+  var pol = clamp((L-50)/12, 0, 1), trop = Math.exp(-Math.pow(L/22, 2)), mid = Math.exp(-Math.pow((Math.abs(L)-40)/12, 2));
+  var e0 = -0.55*trop + 0.8*mid, n0 = -0.6*trop + 0.3*Math.sin(3*lon)*mid;
+  var e = e0*(1-pol) + pol, n = n0*(1-pol) + 0.12*Math.sin(4*lon)*pol;
+  var m = Math.hypot(e, n) || 1;
+  return [e/m, n/m];
+}
+function dirAt(lat, lon, t, len){
+  var w = wind(lat, lon), d = 0.02;
+  var a = proj(lat, lon, t), b = proj(lat + w[1]*d, lon + w[0]*d/Math.cos(lat), t);
+  var dx = b.x-a.x, dy = b.y-a.y, m = Math.hypot(dx, dy) || 1, fore = m/(GR*d);
+  return { x:a.x, y:a.y, v:a.v, dx:dx/m*len*fore, dy:dy/m*len*fore };
+}
+
+var GSTARS = [], GPTS = [], GPART = [];
+var GBLOBS = [[18,40,14,'#94422A'],[30,150,12,'#9A4628'],[22,250,16,'#8F4026'],[40,320,10,'#9C4829'],[10,110,13,'#95422A'],[45,200,9,'#A04C2C']];
+(function(){
+  var r = rng(11), i, lat;
+  for (i=0;i<160;i++) GSTARS.push([r()*W, r()*H, .4 + r()*1.2, .25 + r()*.5]);
+  for (i=0;i<110;i++){
+    var lon = r()*Math.PI*2, dist = Math.min(lon, Math.PI*2 - lon);
+    GPTS.push({ lat:(76.0 + r()*2.1)*D2R, lon:lon, at: 13.0 + dist/Math.PI*1.0 + r()*.2 });
+  }
+  for (i=0;i<60;i++) GPTS.push({ lat:(22 + r()*48)*D2R, lon:r()*Math.PI*2, at: 13.5 + r()*.9 });
+  for (i=0;i<240;i++){
+    lat = i < 160 ? 62 + r()*24 : 15 + r()*45;
+    GPART.push({ lat:lat*D2R, lon:r()*Math.PI*2, off:r()*2.2 });
+  }
+})();
+
+function ringPath(latf, t){
+  for (var k=0;k<=96;k++){
+    var lon = k/96*Math.PI*2, p = proj(latf(lon)*D2R, lon, t);
+    k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
+  }
+  ctx.closePath();
+}
+function blob(lat, lon, rad, fill, t){
+  ctx.beginPath();
+  var any = false;
+  for (var k=0;k<=28;k++){
+    var a = k/28*Math.PI*2;
+    var la = (lat + rad*Math.sin(a))*D2R, lo = (lon + rad*Math.cos(a)/Math.cos(lat*D2R))*D2R, p = proj(la, lo, t);
+    if (p.v > 0) any = true;
+    k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
+  }
+  if (any){ ctx.fillStyle = fill; ctx.fill(); }
+}
+function drawGlobe(t){
+  var halo = ctx.createRadialGradient(GX, GY, GR*.95, GX, GY, GR*1.12);
+  halo.addColorStop(0, 'rgba(240,160,110,.35)'); halo.addColorStop(1, 'rgba(240,160,110,0)');
+  ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(GX, GY, GR*1.12, 0, 7); ctx.fill();
+  ctx.save();
+  ctx.beginPath(); ctx.arc(GX, GY, GR, 0, 7); ctx.clip();
+  var g = ctx.createRadialGradient(GX - GR*.3, GY - GR*.45, GR*.1, GX, GY, GR);
+  g.addColorStop(0, '#E58A55'); g.addColorStop(.7, '#C4643A'); g.addColorStop(1, '#A34E2C');
+  ctx.fillStyle = g; ctx.fillRect(GX-GR, GY-GR, GR*2, GR*2);
+  GBLOBS.forEach(function(b){ blob(b[0], b[1], b[2], b[3], t); });
+  // circumpolar dune field
+  ctx.beginPath();
+  ringPath(function(l){ return 75.7 + .45*Math.sin(5*l) + .25*Math.sin(13*l); }, t);
+  ringPath(function(l){ return 78.6; }, t);
+  ctx.fillStyle = '#5E3527'; ctx.fill('evenodd');
+  // polar cap and its spiral troughs
+  ctx.beginPath(); ringPath(function(l){ return 78.4 + .2*Math.sin(9*l); }, t);
+  ctx.fillStyle = '#F4EEE8'; ctx.fill();
+  ctx.lineCap = 'round';
+  for (var s=0;s<4;s++){
+    ctx.beginPath();
+    for (var k=0;k<=40;k++){
+      var u = k/40, p = proj((88.8 - u*9.2)*D2R, s*Math.PI/2 + u*1.5*Math.PI, t);
+      k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
+    }
+    ctx.strokeStyle = 'rgba(176,132,110,.5)'; ctx.lineWidth = 2.6; ctx.stroke();
+  }
+  var sh = ctx.createRadialGradient(GX - GR*.45, GY - GR*.5, GR*.6, GX - GR*.2, GY - GR*.2, GR*1.6);
+  sh.addColorStop(0, 'rgba(14,17,32,0)'); sh.addColorStop(1, 'rgba(14,17,32,.55)');
+  ctx.fillStyle = sh; ctx.fillRect(GX-GR, GY-GR, GR*2, GR*2);
+  ctx.restore();
+}
+
+function drawWindArrows(t, alpha){
+  ctx.save(); ctx.lineCap = 'round';
+  GPTS.forEach(function(p){
+    var a = seg(t, p.at, p.at + .25);
+    if (a <= 0) return;
+    var d = dirAt(p.lat, p.lon, t, 20);
+    if (d.v <= 0.08) return;
+    var s = back(a), vis = clamp(d.v*3, 0, 1)*alpha;
+    var ex = d.x + d.dx*s, ey = d.y + d.dy*s, ang = Math.atan2(d.dy, d.dx);
+    ctx.strokeStyle = ctx.fillStyle = 'rgba(' + ICE + ',' + vis + ')';
+    ctx.lineWidth = 3.2;
+    ctx.beginPath(); ctx.moveTo(d.x - d.dx*s*.5, d.y - d.dy*s*.5); ctx.lineTo(ex, ey); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ex + Math.cos(ang)*4, ey + Math.sin(ang)*4);
+    ctx.lineTo(ex + Math.cos(ang+2.5)*8, ey + Math.sin(ang+2.5)*8);
+    ctx.lineTo(ex + Math.cos(ang-2.5)*8, ey + Math.sin(ang-2.5)*8); ctx.closePath(); ctx.fill();
+  });
+  ctx.restore();
+}
+
+function drawFlow(t, alpha){
+  if (alpha <= 0) return;
+  var LIFE = 2.2, DT = 1/30, SPEED = 0.3, T0 = 13.6;
+  ctx.save(); ctx.lineCap = 'round';
+  GPART.forEach(function(q){
+    if (t - T0 + q.off < 0) return;
+    var age = (t - T0 + q.off) % LIFE, steps = Math.floor(age/DT), lat = q.lat, lon = q.lon, trail = [];
+    for (var k=0;k<=steps;k++){
+      var w = wind(lat, lon);
+      lat = clamp(lat + w[1]*SPEED*DT, -1.45, 1.5);
+      lon += w[0]*SPEED*DT / Math.max(Math.cos(lat), .25);
+      if (k > steps - 16) trail.push([lat, lon]);
+    }
+    var life = Math.sin(Math.PI*age/LIFE);
+    for (k=1;k<trail.length;k++){
+      var a = proj(trail[k-1][0], trail[k-1][1], t), b = proj(trail[k][0], trail[k][1], t);
+      if (a.v <= .12 || b.v <= .12) continue;
+      ctx.strokeStyle = 'rgba(255,255,255,' + (alpha*life*(k/trail.length)*clamp((b.v-.12)*3, 0, 1)*.9) + ')';
+      ctx.lineWidth = 3.6;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    }
+  });
+  ctx.restore();
+}
+
+var TILE_LAT = (90 - 13*1500/1325)*D2R;
+function globeTile(){
+  var c = proj(TILE_LAT, 0, 0), pole = proj(90*D2R, 0, 0);
+  var tw = W * Math.hypot(pole.x - c.x, pole.y - c.y) / (TILE_R.y - RC.y);
+  return { c:c, w:tw, h:tw*H/W };
+}
+function drawTile(snap, x, y, w, h, softA, hardA){
+  if (softA > 0){ ctx.globalAlpha = softA; ctx.drawImage(snap.soft, x, y, w, h); }
+  if (hardA > 0){ ctx.globalAlpha = hardA; ctx.drawImage(snap.hard, x, y, w, h); }
+  ctx.globalAlpha = 1;
+}
+function renderGlobe(tg, z, snap, softA, hardA, windA, flowA, starA){
+  ctx.fillStyle = '#161A2B'; ctx.fillRect(0, 0, W, H);
+  GSTARS.forEach(function(s){ ctx.fillStyle = 'rgba(226,233,245,' + (s[3]*starA) + ')'; ctx.beginPath(); ctx.arc(s[0], s[1], s[2], 0, 7); ctx.fill(); });
+  var T = globeTile();
+  ctx.save();
+  zoomTransform(T.c, W/T.w, z);
+  drawGlobe(tg);
+  if (snap) drawTile(snap, T.c.x - T.w/2, T.c.y - T.h/2, T.w, T.h, softA, hardA);
+  ctx.restore();
+  if (windA > 0) drawWindArrows(tg, windA);
+  if (flowA > 0) drawFlow(tg, flowA);
+}
+function renderRegion(tr, z, snap, softA, hardA, border){
+  ctx.fillStyle = '#161A2B'; ctx.fillRect(0, 0, W, H);
+  ctx.save();
+  zoomTransform(TILE_R, W/TILE_R.w, z);
+  drawRegion(tr, true);
+  var x = TILE_R.x - TILE_R.w/2, y = TILE_R.y - TILE_R.h/2;
+  if (snap) drawTile(snap, x, y, TILE_R.w, TILE_R.h, softA, hardA);
+  if (border > 0){ ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,' + border + ')'; ctx.strokeRect(x, y, TILE_R.w, TILE_R.h); }
+  ctx.restore();
+}
+
+// Opening: the pole from above, with the cap and dune ring pointed out.
+var SPECKS = [];
+(function(){ var r = rng(31); for (var i=0;i<90;i++) SPECKS.push({ lat:(75.9 + r()*2.3)*D2R, lon:r()*Math.PI*2, at: 2.6 + r()*1.2 }); })();
+function introOverlay(T){
+  var ra = seg(T, 2.5, 3.0) * (1 - seg(T, 4.05, 4.4));
+  if (ra > 0){
+    // the dune ring lights up, dune by dune
+    SPECKS.forEach(function(p){
+      var a = seg(T, p.at, p.at + .2) * ra, q = proj(p.lat, p.lon, 0);
+      if (a <= 0 || q.v <= 0) return;
+      ctx.fillStyle = 'rgba(255,236,210,' + a + ')';
+      ctx.beginPath(); ctx.arc(q.x, q.y, 2.4, 0, 7); ctx.fill();
+    });
+    ctx.save();
+    ctx.beginPath(); ringPath(function(){ return 77; }, 0);
+    ctx.strokeStyle = 'rgba(' + ICE + ',' + (ra*(.25 + .2*Math.sin(T*6))) + ')'; ctx.lineWidth = 14; ctx.stroke();
+    ctx.restore();
+  }
+  var la = seg(T, .5, 1.0) * (1 - seg(T, 4.05, 4.4));
+  if (la > 0){
+    var e = proj(77*D2R, Math.PI/2, 0);
+    ctx.strokeStyle = 'rgba(243,245,249,' + (.6*la) + ')'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(e.x + 6, e.y + 2); ctx.lineTo(800, 268); ctx.stroke();
+    ctx.fillStyle = 'rgba(243,245,249,' + la + ')'; ctx.beginPath(); ctx.arc(e.x + 4, e.y + 1, 4, 0, 7); ctx.fill();
+    pill('NORTH POLAR ICE CAP', 600, 128, la);
+    pill('DUNE FIELD', 880, 272, la);
+  }
+}
+
+function renderRegionOut(tr){
+  var z = ease(seg(tr, 8.95, 10.0)), pa = 1 - seg(tr, 9.85, 10.35);
+  var snap = { hard: photoFrame(), soft: null };
+  ctx.fillStyle = '#161A2B'; ctx.fillRect(0, 0, W, H);
+  ctx.save();
+  zoomTransform(TILE_R, W/TILE_R.w, z);
+  drawRegion(tr, true);
+  var x = TILE_R.x - TILE_R.w/2, y = TILE_R.y - TILE_R.h/2;
+  if (pa > 0){
+    ctx.globalAlpha = pa; ctx.drawImage(snap.hard, x, y, TILE_R.w, TILE_R.h); ctx.globalAlpha = 1;
+    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,' + (.9*z*pa) + ')'; ctx.strokeRect(x, y, TILE_R.w, TILE_R.h);
+  }
+  ctx.restore();
+}
+
+function render(T){
+  if (T < 4.4){
+    renderGlobe(0, 1, null, 0, 0, 0, 0, 1);
+    introOverlay(T);
+  } else if (T < 5.4){                                   // zoom in: globe -> polar dune field
+    var z = 1 - ease(seg(T, 4.4, 5.4));
+    renderGlobe(0, z, regionIn(), seg(T, 4.45, 4.95), seg(T, 5.1, 5.4), 0, 0, 1 - seg(T, 4.4, 4.9));
+  } else if (T < 5.8){
+    renderRegion(0, 1, null, 0, 0, 0);
+  } else if (T < TS0){                                   // zoom in: dune field -> one dune
+    var z2 = 1 - ease(seg(T, 5.8, TS0));
+    renderRegion(0, z2, sceneStart(), seg(T, 5.85, 6.3), seg(T, 6.5, TS0), 0);
+  } else if (T < TS1){
+    renderScene((T - TS0) * K);
+  } else if (T < TR1){                                   // zoom out: photo -> dune field
+    renderRegionOut(8.95 + (T - TS1) * (2.95/2.6));
+  } else {                                               // zoom out: dune field -> planet, then let the winds fade
+    var tg = 11.9 + (T - TR1), zg = ease(seg(tg, 11.9, 13.0));
+    var ta = 1 - seg(tg, 12.75, 13.25), flowA = seg(tg, 13.6, 14.1), end = 1 - seg(T, DUR - 1.0, DUR - .1);
+    renderGlobe(tg, zg, regionOut(), ta, ta*(1 - seg(tg, 11.9, 12.2)), (1 - .6*flowA)*end, flowA*end, seg(tg, 12.4, 13.0));
+  }
+  caption(T);
+}
+
+window.renderAt = function(t){ render(t); };
+window.ready = document.fonts.load('500 42px Inter').then(function(){ return document.fonts.load('600 24px Inter'); });
+if (!/[?&]still/.test(location.search)){
+  var t0 = null;
+  ready.then(function(){ requestAnimationFrame(function loop(ts){ if (t0 === null) t0 = ts; render(((ts-t0)/1000) % DUR); requestAnimationFrame(loop); }); });
+}
+</script>
+</body>
+</html>

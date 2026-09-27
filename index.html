@@ -354,6 +354,16 @@ a.zoom{
 }
 a.zoom:hover{transform:translateY(-3px);box-shadow:0 26px 50px -24px rgba(0,0,0,.9)}
 a.zoom img,a.zoom video{width:100%;height:auto;display:block}
+video.clip{
+  display:block;
+  width:100%;
+  height:auto;
+  aspect-ratio:3/2;
+  border-radius:6px;
+  background:var(--void-deep);
+  box-shadow:0 18px 40px -22px rgba(0,0,0,.8);
+  cursor:pointer;
+}
 a.zoom::after{
   content:"";
   position:absolute;
@@ -775,13 +785,10 @@ footer{position:relative;margin-top:24px}
       <p><a href="https://doi.org/10.1029/2022GL102610">Read the paper</a></p>
     </div>
     <figure>
-      <a class="zoom plain" href="images/global-winds.png">
-        <picture>
-          <source srcset="images/global-winds.webp" type="image/webp">
-          <img src="images/global-winds.png" alt="Global map of barchan dune migration directions on Mars over MOLA shaded relief" width="2388" height="2090" loading="lazy">
-        </picture>
-      </a>
-      <figcaption>Global barchan migration directions over MOLA relief — MRO CTX</figcaption>
+      <video class="clip" muted loop playsinline preload="none" poster="videos/dunes-wind-poster.webp" width="1200" height="800" aria-label="Animation: dunes near Mars' north polar cap are photographed from orbit, AI reads the wind from each dune's shape, and together they reveal winds swirling around the pole">
+        <source src="videos/dunes-wind.mp4" type="video/mp4">
+      </video>
+      <figcaption>How a million dunes become Mars' weather stations — animated explainer</figcaption>
     </figure>
   </div>
 
@@ -1588,7 +1595,7 @@ var REDUCE_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matche
   dlg.addEventListener('close', function(){ img.removeAttribute('src'); });
 })();
 
-// ---- research clips: play only while on screen ----
+// ---- research clips: play only while on screen; tap to pause ----
 (function(){
   var vids = document.querySelectorAll('video.clip');
   if (!vids.length) return;
@@ -1596,13 +1603,21 @@ var REDUCE_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matche
     vids.forEach(function(v){ v.controls = true; });
     return;
   }
+  function play(v){ var p = v.play(); if (p && p.catch) p.catch(function(){}); }
   var io = new IntersectionObserver(function(entries){
     entries.forEach(function(e){
-      if (e.isIntersecting){ var p = e.target.play(); if (p && p.catch) p.catch(function(){}); }
-      else e.target.pause();
+      var v = e.target;
+      if (e.isIntersecting){ if (!v.userPaused) play(v); }
+      else v.pause();
     });
   }, {threshold: 0.35});
-  vids.forEach(function(v){ io.observe(v); });
+  vids.forEach(function(v){
+    v.addEventListener('click', function(){
+      if (v.paused){ v.userPaused = false; play(v); }
+      else { v.userPaused = true; v.pause(); }
+    });
+    io.observe(v);
+  });
 })();
 
 // ---- reveal on scroll ----
