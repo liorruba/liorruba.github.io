@@ -38,6 +38,7 @@ the loop live) and `render-frames.js`, which renders it to PNG frames with Playw
 ```sh
 cd animations && node render-frames.js all dunes-wind 20.4   # name, loop length in s -> frames_dunes-wind/0000.png ...
 cd animations && node render-frames.js all cold-traps 20
+cd animations && node render-frames.js all autoencoder 20
 ```
 
 Then encode with the ffmpeg command above and copy the MP4 and a poster frame into `videos/`.

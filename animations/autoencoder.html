@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@font-face{font-family:"Inter";src:url("fonts/inter-latin.woff2") format("woff2");font-weight:100 900}
+html,body{margin:0;background:#161A2B}
+canvas{display:block}
+</style>
+</head>
+<body>
+<canvas id="c" width="1200" height="800"></canvas>
+<script>
+// Unsupervised classification of Mars' north polar dunes: a cartoon explainer, 20 s seamless loop.
+var W = 1200, H = 800, DUR = 20;
+var c = document.getElementById('c'), ctx = c.getContext('2d');
+var ICE = '143,211,232';
+
+// ---------- helpers ----------
+function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
+function seg(t,a,b){ return clamp((t-a)/(b-a), 0, 1); }
+function ease(x){ return x<.5 ? 4*x*x*x : 1-Math.pow(-2*x+2,3)/2; }
+function easeOut(x){ return 1-Math.pow(1-x,3); }
+function back(x){ var k=1.7; return 1+(k+1)*Math.pow(x-1,3)+k*Math.pow(x-1,2); }
+function lerp(a,b,p){ return a + (b-a)*p; }
+function rng(seed){ return function(){ seed = (seed*16807) % 2147483647; return (seed-1)/2147483646; }; }
+function gauss(r){ return Math.sqrt(-2*Math.log(r() + 1e-9))*Math.cos(2*Math.PI*r()); }
+function rrect(x,y,w,h,r){ ctx.beginPath(); ctx.roundRect(x,y,w,h,r); }
+function pill(text, x, y, a, bg){
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.font = '600 22px Inter';
+  var w = ctx.measureText(text).width + 30;
+  rrect(x - w/2, y - 19, w, 38, 19); ctx.fillStyle = bg || 'rgba(14,17,32,.85)'; ctx.fill();
+  ctx.fillStyle = bg ? '#0E1120' : '#F3F5F9'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x, y + 1);
+  ctx.restore();
+}
+
+// Landscape colours along the continuum: dune fields -> barchans -> dark sand -> plains -> craters
+var STOPS = [[91,63,168],[184,71,154],[232,118,79],[235,192,90],[93,179,160]];
+function colorAt(u){
+  u = clamp(u, 0, 1)*4; var k = Math.min(3, Math.floor(u)), f = u - k, a = STOPS[k], b = STOPS[k+1];
+  return [Math.round(lerp(a[0],b[0],f)), Math.round(lerp(a[1],b[1],f)), Math.round(lerp(a[2],b[2],f))];
+}
+function css(rgb, a){ return 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + (a === undefined ? 1 : a) + ')'; }
+
+// ---------- terrain thumbnails ----------
+var CENT = [0, .25, .5, .75, 1];
+function weights(u){
+  var w = CENT.map(function(cc){ return Math.max(0, 1 - Math.abs(u - cc)/.28); }), s = w.reduce(function(a,b){ return a+b; }, 0);
+  return w.map(function(x){ return x/s; });
+}
+function drawTerrain(g, S, u, seed){
+  var r = rng(seed), w = weights(u), i, k;
+  var base = [.56, .63, .36, .74, .70].reduce(function(a, v, j){ return a + v*w[j]; }, 0);
+  var gv = Math.round(base*255);
+  g.fillStyle = 'rgb(' + gv + ',' + gv + ',' + gv + ')'; g.fillRect(0, 0, S, S);
+  g.lineCap = 'round';
+  // dense barchanoid ridges
+  if (w[0] > 0){
+    g.strokeStyle = 'rgba(30,30,36,' + (.75*w[0]) + ')'; g.lineWidth = S*.07;
+    for (i=0;i<6;i++){
+      var y0 = (i + .3 + r()*.3)*S/6;
+      g.beginPath(); g.moveTo(-5, y0);
+      for (k=0;k<=8;k++) g.quadraticCurveTo(k*S/8 - S/16, y0 + (k%2 ? -1 : 1)*S*.06, k*S/8, y0);
+      g.stroke();
+    }
+  }
+  // isolated barchans
+  if (w[1] > 0){
+    for (i=0;i<4;i++){
+      var bx = S*(.15 + r()*.7), by = S*(.15 + r()*.7), bs = S*(.09 + r()*.05);
+      g.fillStyle = 'rgba(40,40,46,' + (.85*w[1]) + ')';
+      g.beginPath(); g.arc(bx, by, bs, Math.PI*.35, Math.PI*1.65); g.arc(bx + bs*.45, by, bs*.7, Math.PI*1.5, Math.PI*.5, true); g.closePath(); g.fill();
+    }
+  }
+  // dark sand with bright streaks
+  if (w[2] > 0){
+    g.strokeStyle = 'rgba(200,200,210,' + (.35*w[2]) + ')'; g.lineWidth = S*.03;
+    for (i=0;i<5;i++){ var sx0 = r()*S, sy0 = r()*S; g.beginPath(); g.moveTo(sx0, sy0); g.lineTo(sx0 + S*.35, sy0 + S*.12); g.stroke(); }
+  }
+  // speckled plains
+  if (w[3] > 0){
+    for (i=0;i<40;i++){ g.fillStyle = r() < .5 ? 'rgba(60,60,70,' + (.35*w[3]) + ')' : 'rgba(255,255,255,' + (.3*w[3]) + ')'; g.beginPath(); g.arc(r()*S, r()*S, S*(.01 + r()*.02), 0, 7); g.fill(); }
+  }
+  // craters
+  if (w[4] > 0){
+    for (i=0;i<4;i++){
+      var cx0 = S*(.15 + r()*.7), cy0 = S*(.15 + r()*.7), cr = S*(.06 + r()*.1);
+      g.fillStyle = 'rgba(70,70,80,' + (.55*w[4]) + ')'; g.beginPath(); g.arc(cx0, cy0, cr, 0, 7); g.fill();
+      g.strokeStyle = 'rgba(255,255,255,' + (.6*w[4]) + ')'; g.lineWidth = S*.025;
+      g.beginPath(); g.arc(cx0, cy0, cr, Math.PI*1.05, Math.PI*1.95); g.stroke();
+    }
+  }
+}
+function thumb(u, seed){
+  var cv = document.createElement('canvas'); cv.width = cv.height = 96;
+  drawTerrain(cv.getContext('2d'), 96, u, seed);
+  return cv;
+}
+
+// ---------- the dataset: tiles around the pole ----------
+var MX = 600, MY = 345, MR = 300, CAP = 118;
+var TILES = [];
+(function(){
+  var r = rng(5), idx = 0;
+  for (var k=0;k<5;k++){
+    var rad = 150 + 32*k, n = Math.floor(2*Math.PI*rad/34);
+    for (var j=0;j<n;j++){
+      var th = (j + (k%2)*.5)/n*2*Math.PI;
+      // structure on the map: dunes hug the cap, plains and craters further out, a dune-free sector
+      var u = .08 + .19*k + .22*Math.sin(2*th + 1) + .1*gauss(r);
+      if (th > 3.6 && th < 4.6) u += .35;
+      u = clamp(u, 0, 1);
+      TILES.push({ u:u, mx: MX + rad*Math.cos(th), my: MY + rad*Math.sin(th), img: thumb(u, 100 + idx), seed: r(), j: idx });
+      idx++;
+    }
+  }
+  // grid position (step 2), similarity-map position (steps 3-4)
+  var cols = 21, cell = 52, gx0 = (W - cols*cell)/2 + cell/2, gy0 = 64;
+  var order = TILES.slice().sort(function(a, b){ return a.seed - b.seed; });
+  order.forEach(function(tl, i){ tl.gx = gx0 + (i % cols)*cell; tl.gy = gy0 + Math.floor(i/cols)*cell; tl.gi = i; });
+  TILES.forEach(function(tl){
+    tl.lx = (tl.u - .5)*1.8 + .06*gauss(r);
+    tl.ly = .55*Math.sin(tl.u*2*Math.PI*.9) + .11*gauss(r);
+    tl.stack = [90 + (r()-.5)*14, 360 + (r()-.5)*14];
+  });
+  TILES.forEach(function(tl, i){ tl.ts = 9.5 + (tl.gi/TILES.length)*1.4; });
+})();
+var FIRST = TILES.reduce(function(a, b){ return Math.abs(b.u - .1) < Math.abs(a.u - .1) ? b : a; });
+FIRST.ts = 8.3;
+function pickIn(x0, x1, fn){
+  var pool = TILES.filter(function(tl){ return tl.gy > 150 && tl.gy < 450 && tl.gx > x0 && tl.gx < x1; });
+  return pool.reduce(function(a, b){ return fn(b) < fn(a) ? b : a; });
+}
+var TAGS = [
+  { tile: pickIn(100, 420, function(tl){ return tl.u; }), text:'DUNES', t:5.1 },
+  { tile: pickIn(800, 1100, function(tl){ return -tl.u; }), text:'CRATERS', t:5.75 },
+  { tile: pickIn(460, 760, function(tl){ return Math.abs(tl.u - .5); }), text:'DARK SAND', t:6.4 }
+];
+
+// ---------- map ----------
+function drawMap(a){
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  var g = ctx.createRadialGradient(MX - 80, MY - 90, 40, MX, MY, MR);
+  g.addColorStop(0, '#C98E62'); g.addColorStop(1, '#8E5838');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(MX, MY, MR, 0, 7); ctx.fill();
+  ctx.fillStyle = '#F2ECE6'; ctx.beginPath(); ctx.arc(MX, MY, CAP, 0, 7); ctx.fill();
+  ctx.lineCap = 'round';
+  for (var s=0;s<4;s++){
+    ctx.beginPath();
+    for (var k=0;k<=40;k++){ var u = k/40, rr = 12 + u*98, th = s*Math.PI/2 + u*3.2; k ? ctx.lineTo(MX + rr*Math.cos(th), MY + rr*Math.sin(th)) : ctx.moveTo(MX + rr*Math.cos(th), MY + rr*Math.sin(th)); }
+    ctx.strokeStyle = 'rgba(176,132,110,.5)'; ctx.lineWidth = 5; ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawTile(tl, x, y, s, tint, alpha){
+  ctx.save(); ctx.globalAlpha = alpha === undefined ? 1 : alpha;
+  ctx.drawImage(tl.img, x - s/2, y - s/2, s, s);
+  if (tint > 0){
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = css(colorAt(tl.u), tint); ctx.fillRect(x - s/2, y - s/2, s, s);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = css(colorAt(tl.u), .35*tint); ctx.fillRect(x - s/2, y - s/2, s, s);
+  }
+  ctx.strokeStyle = 'rgba(14,17,32,.55)'; ctx.lineWidth = 1; ctx.strokeRect(x - s/2 + .5, y - s/2 + .5, s - 1, s - 1);
+  ctx.restore();
+}
+
+// ---------- network ----------
+var NET = { ex0:250, ex1:470, bx:495, dx0:520, dx1:740, cy:360 };
+function drawNetwork(a){
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  function trap(x0, h0, x1, h1){
+    ctx.beginPath(); ctx.moveTo(x0, NET.cy - h0/2); ctx.lineTo(x1, NET.cy - h1/2); ctx.lineTo(x1, NET.cy + h1/2); ctx.lineTo(x0, NET.cy + h0/2); ctx.closePath();
+    var g = ctx.createLinearGradient(x0, 0, x1, 0);
+    g.addColorStop(0, 'rgba(' + ICE + ',.10)'); g.addColorStop(1, 'rgba(' + ICE + ',.28)');
+    ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = 'rgba(' + ICE + ',.75)'; ctx.lineWidth = 2.5; ctx.stroke();
+  }
+  trap(NET.ex0, 250, NET.ex1, 60);
+  trap(NET.dx1, 250, NET.dx0, 60);
+  rrect(NET.bx - 22, NET.cy - 30, 44, 60, 10); ctx.fillStyle = 'rgba(' + ICE + ',.45)'; ctx.fill();
+  ctx.strokeStyle = 'rgb(' + ICE + ')'; ctx.lineWidth = 2.5; ctx.stroke();
+  // layers inside
+  ctx.strokeStyle = 'rgba(' + ICE + ',.35)'; ctx.lineWidth = 2;
+  for (var i=1;i<4;i++){
+    var x = lerp(NET.ex0, NET.ex1, i/4), h = lerp(250, 60, i/4);
+    ctx.beginPath(); ctx.moveTo(x, NET.cy - h/2 + 8); ctx.lineTo(x, NET.cy + h/2 - 8); ctx.stroke();
+    x = lerp(NET.dx1, NET.dx0, i/4);
+    ctx.beginPath(); ctx.moveTo(x, NET.cy - h/2 + 8); ctx.lineTo(x, NET.cy + h/2 - 8); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// Similarity map: compact on the right while the network runs, then centre stage.
+function latentFrame(t){
+  var p = ease(seg(t, 11.4, 12.2));
+  return { cx: lerp(1027, 600, p), cy: lerp(360, 270, p), sx: lerp(128, 420, p), sy: lerp(170, 150, p),
+           x0: lerp(885, 90, p), y0: lerp(160, 55, p), w: lerp(285, 1020, p), h: lerp(400, 420, p) };
+}
+function latentPos(tl, L){ return [L.cx + tl.lx*L.sx*.5*1.1, L.cy + tl.ly*L.sy]; }
+
+function drawMasked(tl, x, y, s, maskA, recon){
+  drawTile(tl, x, y, s, 0);
+  if (maskA > 0 && !recon){
+    var r = rng(77), n = 4, cs = s/n;
+    ctx.fillStyle = 'rgba(14,17,32,' + (.92*maskA) + ')';
+    for (var i=0;i<n;i++) for (var j=0;j<n;j++) if (r() < .56) ctx.fillRect(x - s/2 + i*cs, y - s/2 + j*cs, cs + .5, cs + .5);
+  }
+}
+
+// ---------- captions ----------
+var CAPS = [
+  { a:.3,  b:3.7,  t:'Thousands of orbital images cover Mars’ north pole…' },
+  { a:4.0, b:7.3,  t:'…too many to label by hand' },
+  { a:7.6, b:11.3, t:'So we let AI learn to sort them on its own…' },
+  { a:11.6, b:15.1, t:'…revealing a continuum of landscapes' },
+  { a:15.4, b:19.2, t:'Mapped back, they trace polar ice and winds' }
+];
+function caption(t){
+  CAPS.forEach(function(k){
+    var p = seg(t, k.a, k.a+.35) * (1-seg(t, k.b-.3, k.b));
+    if (p <= 0) return;
+    ctx.save(); ctx.globalAlpha = p;
+    ctx.translate(0, (1-easeOut(seg(t,k.a,k.a+.35)))*14);
+    ctx.font = '500 42px Inter';
+    var tw = ctx.measureText(k.t).width, h = 86, w = tw + 72, x = (W - w)/2, y = H - 26 - h;
+    rrect(x, y, w, h, 40); ctx.fillStyle = 'rgba(14,17,32,.86)'; ctx.fill();
+    ctx.fillStyle = '#F3F5F9'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(k.t, W/2, y + h/2 + 1);
+    ctx.restore();
+  });
+}
+
+// ---------- timeline ----------
+function drawCursor(x, y, press){
+  ctx.save(); ctx.translate(x, y); var s = press ? .88 : 1; ctx.scale(s, s);
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 30); ctx.lineTo(8, 23); ctx.lineTo(14, 36); ctx.lineTo(20, 33); ctx.lineTo(14, 21); ctx.lineTo(24, 21); ctx.closePath();
+  ctx.fillStyle = '#F3F5F9'; ctx.fill(); ctx.strokeStyle = '#0E1120'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.restore();
+}
+
+function render(t){
+  var bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#12162A'); bg.addColorStop(1, '#1A1F33');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  var mapA = 1 - seg(t, 3.8, 4.5) + seg(t, 15.0, 15.6);
+  drawMap(clamp(mapA, 0, 1));
+
+  var toGrid = ease(seg(t, 3.8, 5.0)), toStack = ease(seg(t, 7.4, 8.2));
+  var L = latentFrame(t);
+  var tint = t < 15 ? 0 : ease(seg(t, 15.6, 16.6)) * (1 - ease(seg(t, 19.2, 19.95)));
+  var netA = seg(t, 7.8, 8.2) * (1 - seg(t, 11.2, 11.6));
+  drawNetwork(netA);
+
+  // similarity-map panel
+  var panelA = seg(t, 9.3, 9.7) * (1 - seg(t, 15.2, 15.6));
+  if (panelA > 0){
+    ctx.save(); ctx.globalAlpha = panelA;
+    rrect(L.x0, L.y0, L.w, L.h, 18); ctx.fillStyle = 'rgba(243,245,249,.05)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(243,245,249,.18)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.font = '600 20px Inter'; ctx.fillStyle = 'rgba(243,245,249,' + (.7*seg(t, 12.0, 12.4)) + ')'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('SIMILAR LOOKING → CLOSE TOGETHER', L.x0 + 18, L.y0 + 14);
+    ctx.restore();
+  }
+
+  // colouring of the similarity map: 6 hard groups, then a smooth continuum
+  var six = seg(t, 12.3, 12.8), cont = seg(t, 13.5, 14.3);
+  function dotColor(u){
+    var q = (Math.min(5, Math.floor(u*6)) + .5)/6, a = colorAt(q), b = colorAt(u);
+    var c6 = [lerp(201, a[0], six), lerp(206, a[1], six), lerp(220, a[2], six)];
+    return [Math.round(lerp(c6[0], b[0], cont)), Math.round(lerp(c6[1], b[1], cont)), Math.round(lerp(c6[2], b[2], cont))];
+  }
+
+  TILES.forEach(function(tl){
+    var x, y, s, alpha = 1;
+    if (t < 7.4){
+      x = lerp(tl.mx, tl.gx, toGrid); y = lerp(tl.my, tl.gy, toGrid); s = lerp(26, 48, toGrid);
+      drawTile(tl, x, y, s, 0);
+      return;
+    }
+    if (t < tl.ts){
+      x = lerp(tl.gx, tl.stack[0], toStack); y = lerp(tl.gy, tl.stack[1], toStack); s = lerp(48, 30, toStack);
+      drawTile(tl, x, y, s, 0);
+      return;
+    }
+    var lp = latentPos(tl, L), col;
+    if (t < 15.2){
+      if (tl === FIRST){
+        // the worked example: hide patches, compress, reconstruct
+        var a1 = ease(seg(t, 8.3, 8.6)), a2 = ease(seg(t, 8.65, 8.95)), a3 = ease(seg(t, 9.1, 9.5));
+        if (a2 < 1){
+          x = lerp(tl.stack[0], 165, a1); y = lerp(tl.stack[1], NET.cy, a1); s = lerp(30, 110, a1);
+          x = lerp(x, NET.bx, a2); s = lerp(s, 14, a2);
+          if (a2 < .9) drawMasked(tl, x, y, s, seg(t, 8.35, 8.55), false);
+        }
+        var ra = seg(t, 8.9, 9.2) * (1 - seg(t, 10.6, 11.0));
+        if (ra > 0){
+          var rs = lerp(14, 110, ease(seg(t, 8.9, 9.25)));
+          drawMasked(tl, lerp(NET.bx, NET.dx1 + 60, ease(seg(t, 8.9, 9.25))), NET.cy, rs, 0, true);
+          pill('FILLED IN', NET.dx1 + 60, NET.cy - 80, seg(t, 9.2, 9.4) * (1 - seg(t, 10.6, 11.0)));
+        }
+        var ma = seg(t, 8.35, 8.55) * (1 - seg(t, 8.65, 8.8));
+        pill('PATCHES HIDDEN', 165, NET.cy - 80, ma);
+        if (a2 >= .9){
+          x = lerp(NET.bx, lp[0], a3); y = lerp(NET.cy, lp[1], a3) - Math.sin(a3*Math.PI)*90;
+          col = dotColor(tl.u);
+          ctx.fillStyle = css(col); ctx.beginPath(); ctx.arc(x, y, lerp(8, 6, a3), 0, 7); ctx.fill();
+        }
+        return;
+      }
+      var d = t - tl.ts, p1 = easeOut(seg(d, 0, .15)), p2 = seg(d, .15, .28), p3 = ease(seg(d, .28, .55));
+      if (p2 < 1){
+        x = lerp(lerp(tl.stack[0], NET.ex0, p1), NET.bx, p2); y = NET.cy + (tl.stack[1] - NET.cy)*(1 - p1);
+        s = lerp(lerp(30, 20, p1), 8, p2);
+        drawTile(tl, x, y, s, 0, 1 - p2*.6);
+        return;
+      }
+      x = lerp(NET.bx, lp[0], p3); y = lerp(NET.cy, lp[1], p3) - Math.sin(p3*Math.PI)*90;
+      col = dotColor(tl.u);
+      ctx.fillStyle = css(col); ctx.beginPath(); ctx.arc(x, y, lerp(5, 6, p3) + ease(seg(t, 11.4, 12.2)), 0, 7); ctx.fill();
+      return;
+    }
+    // back onto the map
+    var pb = ease(seg(t, 15.2, 16.4 + (tl.u - .5)*.3));
+    x = lerp(lp[0], tl.mx, pb); y = lerp(lp[1], tl.my, pb);
+    if (pb < .6){
+      col = dotColor(tl.u);
+      ctx.fillStyle = css(col); ctx.beginPath(); ctx.arc(x, y, 7, 0, 7); ctx.fill();
+    } else {
+      drawTile(tl, x, y, lerp(6, 26, seg(pb, .6, 1)), tint);
+    }
+  });
+
+  // hand labelling
+  var cur = null;
+  TAGS.forEach(function(g, i){
+    var ta = seg(t, g.t + .45, g.t + .7) * (1 - seg(t, 7.3, 7.6));
+    if (ta > 0){
+      ctx.strokeStyle = 'rgba(' + ICE + ',' + ta + ')'; ctx.lineWidth = 4; ctx.strokeRect(g.tile.gx - 27, g.tile.gy - 27, 54, 54);
+      pill(g.text, g.tile.gx, g.tile.gy - 48, ta, 'rgb(' + ICE + ')');
+    }
+  });
+  if (t > 4.9 && t < 7.4){
+    var path = [[W*.7, H*.72]].concat(TAGS.map(function(g){ return [g.tile.gx + 6, g.tile.gy + 6]; }));
+    var k = 0; while (k < TAGS.length - 1 && t > TAGS[k+1].t - .1) k++;
+    var from = t < TAGS[0].t ? path[0] : path[k+1], to = t < TAGS[0].t ? path[1] : path[Math.min(k+2, path.length-1)];
+    var st = t < TAGS[0].t ? 4.9 : TAGS[k].t + .5, en = t < TAGS[0].t ? TAGS[0].t + .35 : (TAGS[k+1] ? TAGS[k+1].t + .35 : 99);
+    var pp = ease(seg(t, st, en));
+    if (t >= TAGS[TAGS.length-1].t + .5) { from = to = path[path.length-1]; pp = 1; }
+    var press = TAGS.some(function(g){ return t > g.t + .35 && t < g.t + .5; });
+    drawCursor(lerp(from[0], to[0], pp), lerp(from[1], to[1], pp), press);
+    var n = TAGS.filter(function(g){ return t > g.t + .45; }).length;
+    pill(n + ' / 32,000 labeled', W - 190, 30, seg(t, 5.0, 5.3) * (1 - seg(t, 7.2, 7.5)));
+  }
+
+  // continuum legend
+  var lg = seg(t, 13.6, 14.2) * (1 - seg(t, 15.0, 15.4));
+  if (lg > 0){
+    ctx.save(); ctx.globalAlpha = lg;
+    var names = ['DUNE FIELDS', 'BARCHANS', 'DARK SAND', 'PLAINS', 'CRATERS'];
+    for (var i=0;i<5;i++){
+      var cx = 180 + i*210, cy = 556;
+      var tl = { img: LEG[i], u: i/4 };
+      drawTile(tl, cx, cy, 64, 0);
+      ctx.strokeStyle = css(colorAt(i/4)); ctx.lineWidth = 4; ctx.strokeRect(cx - 33, cy - 33, 66, 66);
+      ctx.font = '600 18px Inter'; ctx.fillStyle = '#F3F5F9'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(names[i], cx, cy + 42);
+    }
+    var gb = ctx.createLinearGradient(180, 0, 1020, 0);
+    for (i=0;i<=8;i++) gb.addColorStop(i/8, css(colorAt(i/8)));
+    ctx.fillStyle = gb; rrect(180, 492, 840, 10, 5); ctx.fill();
+    ctx.restore();
+  }
+
+  caption(t);
+}
+var LEG = [0, .25, .5, .75, 1].map(function(u, i){ return thumb(u, 900 + i); });
+
+window.renderAt = function(t){ render(t); };
+window.ready = document.fonts.load('500 42px Inter').then(function(){ return document.fonts.load('600 22px Inter'); });
+if (!/[?&]still/.test(location.search)){
+  var t0 = null;
+  ready.then(function(){ requestAnimationFrame(function loop(ts){ if (t0 === null) t0 = ts; render(((ts-t0)/1000) % DUR); requestAnimationFrame(loop); }); });
+}
+</script>
+</body>
+</html>
