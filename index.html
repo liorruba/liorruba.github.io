@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lior Rubanenko</title>
-<meta name="description" content="Lior Rubanenko — Assistant Professor of Geophysics at Tel Aviv University. AI-assisted spacecraft data and remote sensing of planetary surface processes.">
+<meta name="description" content="Lior Rubanenko — Assistant Professor of Planetary Science at Tel Aviv University. AI-assisted analysis of spacecraft data and remote sensing of planetary surface processes.">
 <link rel="canonical" href="https://www.liorruba.com">
 <meta property="og:title" content="Lior Rubanenko">
 <meta property="og:description" content="Researcher in AI-assisted spacecraft and remote sensing of surface processes.">
@@ -12,11 +12,17 @@
 <meta property="og:url" content="https://www.liorruba.com">
 <meta property="og:image" content="https://www.liorruba.com/images/header-dunes.jpg">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#161A2B">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 
 <style>
 :root{
   --void:#161A2B;
   --void-deep:#0E1120;
+  --panel:#1C2135;
   --text:#F3F5F9;
   --text-dim:#A6AEC2;
   --text-faint:#6E7793;
@@ -24,15 +30,14 @@
   --ice:#8FD3E8;
   --regolith:#C9CEDC;
 
-  --sans:"Helvetica Neue",Helvetica,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
-  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --sans:"Inter","Helvetica Neue",Helvetica,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
 
-  --pad:clamp(20px,5vw,64px);
-  --measure:none;
+  --pad:clamp(16px,5vw,64px);
 }
 
 *{box-sizing:border-box}
-html{scroll-behavior:smooth}
+html{scroll-behavior:smooth;scroll-padding-top:84px}
 body{
   margin:0;
   background:var(--void);
@@ -45,6 +50,7 @@ body{
   overflow-x:hidden;
 }
 a{color:inherit}
+img{max-width:100%}
 
 /* ---------- starfield ---------- */
 #stars{
@@ -63,7 +69,8 @@ nav{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  padding:18px var(--pad);
+  gap:16px;
+  padding:14px var(--pad);
   backdrop-filter:blur(9px);
   -webkit-backdrop-filter:blur(9px);
   background:rgba(22,26,43,.55);
@@ -74,20 +81,21 @@ nav.scrolled{border-bottom-color:var(--hairline)}
 .brand{
   display:flex;
   align-items:center;
-  gap:18px;
+  gap:16px;
   text-decoration:none;
   opacity:.92;
   transition:opacity .2s ease;
+  min-width:0;
 }
 .brand:hover{opacity:1}
 .brand img{
-  height:90px;
+  height:56px;
   width:auto;
   display:block;
 }
 .brand-rule{
   width:1px;
-  height:62px;
+  height:40px;
   background:var(--hairline);
   flex:none;
   opacity:0;
@@ -97,14 +105,13 @@ nav.scrolled{border-bottom-color:var(--hairline)}
   display:flex;
   flex-direction:column;
   justify-content:center;
-  height:90px;
-  gap:6px;
+  gap:4px;
   opacity:0;
   transform:translateY(8px);
   transition:opacity .18s linear,transform .18s linear;
 }
 .brand-name{
-  font-size:21px;
+  font-size:19px;
   font-weight:300;
   letter-spacing:-.01em;
   line-height:1.1;
@@ -112,43 +119,87 @@ nav.scrolled{border-bottom-color:var(--hairline)}
 }
 .brand-title{
   font-family:var(--mono);
-  font-size:11px;
+  font-size:10.5px;
   letter-spacing:.14em;
   text-transform:uppercase;
   line-height:1.3;
   color:var(--text-faint);
 }
-.navlinks{display:flex;gap:clamp(16px,3vw,42px)}
+.navlinks{display:flex;gap:clamp(16px,3vw,40px)}
 .navlinks a{
   text-decoration:none;
   color:var(--text-dim);
   font-size:15px;
   transition:color .2s ease;
 }
-.navlinks a:hover,.navlinks a:focus-visible{color:var(--text)}
+.navlinks a:hover,.navlinks a:focus-visible,.navlinks a.active{color:var(--text)}
+.menu-btn{
+  display:none;
+  width:40px;height:40px;
+  margin-right:-8px;
+  background:none;border:0;padding:0;
+  color:var(--text);
+  cursor:pointer;
+  position:relative;
+}
+.menu-btn span,.menu-btn span::before,.menu-btn span::after{
+  position:absolute;left:10px;width:20px;height:1.5px;background:currentColor;
+  transition:transform .2s ease,opacity .2s ease;
+}
+.menu-btn span{top:19px}
+.menu-btn span::before,.menu-btn span::after{content:"";left:0}
+.menu-btn span::before{top:-6px}
+.menu-btn span::after{top:6px}
+nav.open .menu-btn span{background:transparent}
+nav.open .menu-btn span::before{transform:translateY(6px) rotate(45deg)}
+nav.open .menu-btn span::after{transform:translateY(-6px) rotate(-45deg)}
+
 @media(max-width:1000px){
   .brand-rule,.brand-text{display:none}
 }
-@media(max-width:640px){
-  .brand img{height:66px}
-  .navlinks{gap:15px}
-  .navlinks a{font-size:13px}
+@media(max-width:720px){
+  .brand img{height:44px}
+  .menu-btn{display:block}
+  .navlinks{
+    display:none;
+    position:absolute;
+    top:100%;left:0;right:0;
+    flex-direction:column;
+    gap:0;
+    padding:6px var(--pad) 14px;
+    background:rgba(14,17,32,.97);
+    border-bottom:1px solid var(--hairline);
+  }
+  nav.open .navlinks{display:flex}
+  .navlinks a{font-size:16px;padding:12px 0;border-top:1px solid rgba(255,255,255,.06)}
+  .navlinks a:first-child{border-top:0}
 }
 
 /* ---------- hero ---------- */
 header.hero{
-  min-height:88vh;
+  position:relative;
+  min-height:calc(100vh - 84px);
+  min-height:calc(100svh - 84px);
   display:flex;
   flex-direction:column;
   align-items:center;
   justify-content:center;
   text-align:center;
   padding:80px var(--pad);
+  overflow:hidden;
 }
+#planets{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+}
+.hero-inner{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center}
 h1{
   font-size:clamp(44px,8.5vw,104px);
   font-weight:200;
-  letter-spacing:-.015em;
+  letter-spacing:-.03em;
   line-height:1.02;
   margin:0;
 }
@@ -176,10 +227,31 @@ h1{
   height:1px;
   background:var(--hairline);
 }
+.scroll-cue{
+  position:absolute;
+  left:50%;
+  bottom:28px;
+  z-index:1;
+  width:22px;height:34px;
+  margin-left:-11px;
+  border:1px solid rgba(255,255,255,.22);
+  border-radius:11px;
+}
+.scroll-cue::after{
+  content:"";
+  position:absolute;
+  left:50%;top:7px;
+  width:2px;height:6px;
+  margin-left:-1px;
+  border-radius:1px;
+  background:var(--text-dim);
+  animation:cue 2.2s ease-in-out infinite;
+}
+@keyframes cue{0%{transform:translateY(0);opacity:0}30%{opacity:1}80%{transform:translateY(12px);opacity:0}100%{opacity:0}}
 
 /* ---------- sections ---------- */
 section{
-  padding:clamp(72px,10vw,132px) var(--pad);
+  padding:clamp(56px,7vw,96px) var(--pad);
   max-width:1180px;
   margin:0 auto;
 }
@@ -196,13 +268,14 @@ section{
 h2{
   font-size:clamp(27px,4vw,40px);
   font-weight:200;
-  letter-spacing:-.01em;
+  letter-spacing:-.02em;
   margin:0 0 28px;
   line-height:1.15;
 }
 h3{
   font-size:clamp(19px,2.4vw,25px);
   font-weight:300;
+  letter-spacing:-.01em;
   margin:0 0 14px;
   line-height:1.3;
 }
@@ -217,13 +290,30 @@ section a:not(.plain):hover{border-bottom-color:var(--ice)}
 
 /* about */
 .about-grid{display:grid;grid-template-columns:220px 1fr;gap:clamp(32px,5vw,64px);align-items:start}
-.portrait{width:100%;border-radius:2px;display:block;filter:saturate(.85)}
+.portrait{width:100%;height:auto;border-radius:4px;display:block;filter:saturate(.85)}
 @media(max-width:760px){
   .about-grid{grid-template-columns:1fr}
   .portrait{max-width:190px}
 }
 
 /* research */
+.banner{
+  position:relative;
+  margin:0 0 clamp(24px,4vw,40px);
+}
+.banner img{
+  display:block;
+  width:100%;
+  height:clamp(110px,16vw,190px);
+  object-fit:cover;
+  object-position:62% 50%;
+  border-radius:4px;
+  filter:saturate(.9) brightness(.9);
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
+          mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
+}
+.banner figcaption{text-align:center}
+
 .project{
   display:grid;
   grid-template-columns:1fr 1fr;
@@ -233,41 +323,192 @@ section a:not(.plain):hover{border-bottom-color:var(--ice)}
   border-top:1px solid var(--hairline);
 }
 .project:first-of-type{border-top:none;padding-top:8px}
+.project:last-child{padding-bottom:0}
+.project.flip > figure{order:-1}
 .project figure{margin:0}
-.project img{width:100%;display:block;border-radius:2px;background:#0b0e19}
+.tags{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin:0 0 14px;
+}
+.tags span{
+  font-family:var(--mono);
+  font-size:10.5px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--ice);
+  padding:3px 8px;
+  border:1px solid rgba(143,211,232,.25);
+  border-radius:3px;
+}
+a.zoom{
+  display:block;
+  position:relative;
+  border-radius:6px;
+  overflow:hidden;
+  background:#fff;
+  box-shadow:0 1px 0 rgba(255,255,255,.06) inset,0 18px 40px -22px rgba(0,0,0,.8);
+  cursor:zoom-in;
+  transition:transform .35s ease,box-shadow .35s ease;
+}
+a.zoom:hover{transform:translateY(-3px);box-shadow:0 26px 50px -24px rgba(0,0,0,.9)}
+a.zoom img,a.zoom video{width:100%;height:auto;display:block}
+a.zoom::after{
+  content:"";
+  position:absolute;
+  right:10px;bottom:10px;
+  width:28px;height:28px;
+  border-radius:50%;
+  background:rgba(14,17,32,.72) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F3F5F9' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7'/%3E%3C/svg%3E") center/14px no-repeat;
+  opacity:0;
+  transition:opacity .2s ease;
+}
+a.zoom:hover::after,a.zoom:focus-visible::after{opacity:1}
 figcaption{
   font-family:var(--mono);
   font-size:11.5px;
   line-height:1.5;
-  letter-spacing:.05em;
+  letter-spacing:.03em;
   color:var(--text-faint);
   margin-top:12px;
 }
-@media(max-width:820px){.project{grid-template-columns:1fr}}
+@media(max-width:820px){
+  .project{grid-template-columns:1fr}
+  .project.flip > figure{order:0}
+}
+
+/* lightbox */
+dialog.lightbox{
+  border:0;
+  padding:0;
+  background:transparent;
+  max-width:min(94vw,1500px);
+  max-height:94vh;
+  overflow:visible;
+}
+dialog.lightbox::backdrop{background:rgba(8,10,20,.9);backdrop-filter:blur(4px)}
+dialog.lightbox img{
+  display:block;
+  max-width:min(94vw,1500px);
+  max-height:84vh;
+  width:auto;height:auto;
+  margin:0 auto;
+  border-radius:6px;
+  background:#fff;
+}
+dialog.lightbox p{
+  font-family:var(--mono);
+  font-size:12px;
+  color:var(--text-dim);
+  text-align:center;
+  margin:14px 0 0;
+}
+dialog.lightbox button{
+  position:absolute;
+  top:-44px;right:0;
+  width:36px;height:36px;
+  border-radius:50%;
+  border:1px solid var(--hairline);
+  background:rgba(14,17,32,.7);
+  color:var(--text);
+  font-size:20px;
+  line-height:1;
+  cursor:pointer;
+}
 
 /* publications */
-ol.pubs{margin:0;padding:0;list-style:none;counter-reset:pub}
+.pub-tools{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px 24px;
+  margin:0 0 26px;
+}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--text-dim);
+  background:transparent;
+  border:1px solid var(--hairline);
+  border-radius:999px;
+  padding:6px 13px;
+  cursor:pointer;
+  transition:color .2s,border-color .2s,background .2s;
+}
+.chip:hover{color:var(--text);border-color:rgba(255,255,255,.3)}
+.chip[aria-pressed="true"]{color:var(--void-deep);background:var(--ice);border-color:var(--ice)}
+.chip .n{opacity:.6;margin-left:6px}
+
+ol.pubs{margin:0;padding:0;list-style:none}
 ol.pubs li{
-  counter-increment:pub;
-  position:relative;
-  padding:15px 0 15px 52px;
+  display:grid;
+  grid-template-columns:64px 1fr 64px;
+  gap:0 20px;
+  align-items:start;
+  padding:16px 0;
   border-top:1px solid var(--hairline);
   color:var(--text-dim);
   font-size:15.5px;
   line-height:1.6;
 }
-ol.pubs li:first-child{border-top:none}
-ol.pubs li::before{
-  content:counter(pub,decimal-leading-zero);
-  position:absolute;
-  left:0;
-  top:17px;
+#conf-list li{grid-template-columns:64px 1fr}
+ol.pubs li.same-year{border-top-color:rgba(255,255,255,.05)}
+ol.pubs li[hidden]{display:none}
+ol.pubs .py{
   font-family:var(--mono);
-  font-size:11.5px;
-  color:var(--text-faint);
-  letter-spacing:.08em;
+  font-size:13px;
+  color:var(--text);
+  letter-spacing:.04em;
+  padding-top:2px;
 }
-@media(max-width:600px){ol.pubs li{padding-left:38px}}
+ol.pubs li.same-year .py{visibility:hidden}
+ol.pubs li .me{color:var(--text);font-weight:500}
+ol.pubs li .venue{font-style:italic}
+.badge{
+  display:inline-block;
+  vertical-align:2px;
+  margin-left:6px;
+  font-family:var(--mono);
+  font-style:normal;
+  font-size:9.5px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--void-deep);
+  background:var(--ice);
+  border-radius:3px;
+  padding:2px 6px 1px;
+}
+.cites{
+  display:inline-block;
+  margin-left:10px;
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.06em;
+  color:var(--text-faint);
+  white-space:nowrap;
+}
+a.pthumb{
+  display:block;
+  width:64px;height:64px;
+  border-radius:4px;
+  overflow:hidden;
+  border:none !important;
+  background:#fff;
+  opacity:.9;
+  transition:opacity .2s,transform .2s;
+}
+a.pthumb:hover{opacity:1;transform:scale(1.04)}
+a.pthumb img{width:100%;height:100%;object-fit:cover;display:block}
+@media(max-width:600px){
+  ol.pubs li{grid-template-columns:1fr;gap:4px}
+  ol.pubs li.same-year .py{display:none}
+  a.pthumb{display:none}
+}
 
 .pub-status{
   font-family:var(--mono);
@@ -275,11 +516,9 @@ ol.pubs li::before{
   letter-spacing:.13em;
   text-transform:uppercase;
   color:var(--text-faint);
-  margin:-14px 0 22px;
+  margin:0;
   min-height:1em;
 }
-ol.pubs li .me{color:var(--text);font-weight:500}
-ol.pubs li .venue{font-style:italic}
 .pub-status a{
   color:var(--text-dim) !important;
   border-bottom:1px solid rgba(255,255,255,.2) !important;
@@ -292,34 +531,53 @@ ol.pubs li .venue{font-style:italic}
   letter-spacing:.2em;
   text-transform:uppercase;
   color:var(--text-faint);
-  margin:64px 0 22px;
+  margin:56px 0 12px;
 }
 
 /* press */
-ul.press{margin:0;padding:0;list-style:none}
-ul.press li{border-top:1px solid var(--hairline)}
-ul.press li:first-child{border-top:none}
+ul.press{
+  margin:0;
+  padding:0;
+  list-style:none;
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(190px,1fr));
+  gap:18px;
+}
 ul.press a{
   display:flex;
-  flex-wrap:wrap;
-  align-items:baseline;
-  gap:6px 18px;
-  padding:19px 0;
+  flex-direction:column;
+  height:100%;
   text-decoration:none;
-  border:none !important;
+  border:1px solid var(--hairline) !important;
+  border-radius:6px;
+  overflow:hidden;
+  background:var(--panel);
   color:var(--text) !important;
-  transition:padding-left .25s ease,color .2s ease;
+  transition:transform .3s ease,border-color .3s ease;
 }
-ul.press a:hover{padding-left:10px;color:var(--ice) !important}
+ul.press a:hover{transform:translateY(-3px);border-color:rgba(143,211,232,.45) !important}
+ul.press img{
+  display:block;
+  width:100%;
+  aspect-ratio:16/10;
+  object-fit:cover;
+  object-position:top;
+  filter:grayscale(.55) brightness(.85);
+  transition:filter .3s ease;
+}
+ul.press a:hover img{filter:none}
+.press-body{padding:14px 16px 18px}
 .outlet{
+  display:block;
   font-family:var(--mono);
-  font-size:11px;
+  font-size:10.5px;
   letter-spacing:.15em;
   text-transform:uppercase;
   color:var(--text-faint);
-  min-width:145px;
+  margin-bottom:6px;
 }
-.headline{font-weight:300;font-size:17px;flex:1;min-width:240px}
+.headline{display:block;font-weight:300;font-size:16px;line-height:1.4}
+@media(max-width:480px){ul.press{grid-template-columns:1fr 1fr;gap:12px}.headline{font-size:14.5px}}
 
 /* contact */
 .contact-list{display:flex;flex-wrap:wrap;gap:14px 44px;margin-top:8px}
@@ -335,7 +593,7 @@ ul.press a:hover{padding-left:10px;color:var(--ice) !important}
 }
 
 /* ---------- lunar footer ---------- */
-footer{position:relative;margin-top:40px}
+footer{position:relative;margin-top:24px}
 .moon-svg{
   display:block;
   width:100%;
@@ -356,7 +614,6 @@ footer{position:relative;margin-top:40px}
 }
 .ground{
   background:var(--void-deep);
-  border-top:none;
   padding:0 var(--pad) 46px;
   margin-top:-2px;
 }
@@ -400,14 +657,18 @@ footer{position:relative;margin-top:40px}
 
 <nav id="nav">
   <a href="#top" class="brand" aria-label="Lior Rubanenko — home">
-    <img src="images/tau-logo.png" alt="Tel Aviv University">
+    <picture>
+      <source srcset="images/tau-logo.webp" type="image/webp">
+      <img src="images/tau-logo.png" alt="Tel Aviv University" width="103" height="56">
+    </picture>
     <span class="brand-rule"></span>
     <span class="brand-text">
       <span class="brand-name">Lior Rubanenko</span>
       <span class="brand-title">Assistant Professor of Planetary Science</span>
     </span>
   </a>
-  <div class="navlinks">
+  <button class="menu-btn" type="button" aria-label="Menu" aria-expanded="false" aria-controls="navlinks"><span></span></button>
+  <div class="navlinks" id="navlinks">
     <a href="#about">About</a>
     <a href="#research">Research</a>
     <a href="#publications">Publications</a>
@@ -417,18 +678,26 @@ footer{position:relative;margin-top:40px}
 </nav>
 
 <header class="hero" id="top">
-  <h1>Lior Rubanenko</h1>
-  <p class="tagline">Assistant Professor of Planetary Science</p>
-  <div class="affil">Tel Aviv University</div>
+  <canvas id="planets" aria-hidden="true"></canvas>
+  <div class="hero-inner">
+    <h1>Lior Rubanenko</h1>
+    <p class="tagline">Assistant Professor of Planetary Science</p>
+    <div class="affil">Tel Aviv University</div>
+  </div>
+  <a href="#about" class="scroll-cue" aria-label="Scroll to About"></a>
 </header>
 
 <section id="about" class="reveal">
   <p class="eyebrow">About</p>
   <div class="about-grid">
     <div>
-      <img src="images/portrait.jpg" alt="Lior Rubanenko" class="portrait">
+      <picture>
+        <source srcset="images/portrait.webp" type="image/webp">
+        <img src="images/portrait.jpg" alt="Lior Rubanenko" class="portrait" width="480" height="431">
+      </picture>
     </div>
     <div>
+
       <p>I seek to understand how planetary surfaces form and evolve, and how they interact with ice, wind, and the harsh environment of space. To accomplish this goal, I harness the vast amount of remote sensing data gathered by NASA spacecraft and analyze them using statistics, machine and deep learning. As a member of the <a href="https://www.diviner.ucla.edu/">LRO Diviner team</a>, I work on a variety of problems related to the way surface roughness affects the temperature and the stability of ice on the Moon.</p>
 
       <p>Currently, I am an Assistant Professor at the <a href="https://en-exact-sciences.tau.ac.il/earth">Department of Earth and Planetary Sciences</a>, Tel Aviv University. Previously, I was a postdoctoral scholar at the <a href="https://earth.stanford.edu/gs">Department of Geological Sciences at Stanford University</a>, where I worked with Mathieu Lapotre on applying artificial intelligence to map and investigate topographic features on the surface of Mars. Before that, I completed my PhD at UCLA, working with <a href="https://www.diviner.ucla.edu/dap">David Paige</a> on problems related to radiometry and geomorphology on the Moon and Mercury, and my Master's degree at the Weizmann Institute of Science, where I worked with <a href="https://sites.google.com/a/aharonson.com/aharonson/">Oded Aharonson</a> on modeling temperatures and ice stability on airless planetary surfaces. My undergraduate research projects focussed on characterizing Transient Luminous Events (TLEs) with <a href="https://www.idc.ac.il/en/pages/faculty.aspx?username=yoav.yair">Yoav Yair</a> (the Open University) and <a href="https://www.tau.ac.il/~colin/">Colin Price</a> (Tel Aviv University).</p>
@@ -441,79 +710,133 @@ footer{position:relative;margin-top:40px}
 <section id="research" class="reveal">
   <p class="eyebrow">Current Research</p>
 
-  <div class="project">
+  <figure class="banner">
+    <picture>
+      <source srcset="images/header-dunes.webp" type="image/webp">
+      <img src="images/header-dunes.jpg" alt="Barchan dunes on Mars detected and outlined by a neural network" width="2000" height="500" loading="lazy">
+    </picture>
+  </figure>
+
+  <!--
+    Animated clips: to replace a still figure with a looping clip, swap the <picture> inside
+    a.zoom for a <video>. Keep the still as the poster; it is shown until the clip loads and
+    to visitors who prefer reduced motion. See README.md for the ffmpeg export commands.
+
+    <video class="clip" muted loop playsinline preload="none" poster="images/NAME.webp" width="1200" height="800">
+      <source src="videos/NAME.webm" type="video/webm">
+      <source src="videos/NAME.mp4" type="video/mp4">
+    </video>
+  -->
+
+  <div class="project" id="r-autoencoder">
     <div>
+      <p class="tags"><span>Mars</span><span>CTX</span><span>Unsupervised learning</span></p>
       <h3>Unsupervised classification of planetary surfaces</h3>
       <p>Manual interpretation of spacecraft images is robust but does not scale, and it imposes the analyst's own categories onto the data. Working with Yasmin Hayat, we trained two unsupervised networks — a convolutional autoencoder and a masked autoencoder — on 32,000 CTX images of Mars' north polar erg, then used them to characterise 100,000 unseen images without a single manual label.</p>
       <p>The masked autoencoder substantially outperformed the convolutional one, reaching 97% accuracy against 80% on the dune/non-dune task. More interestingly, dividing the latent space into a hundred clusters rather than six recovers a continuum — dense barchanoid ridges grading through isolated barchans, dark sediment, regolith and cratered terrain — rather than forcing sharp boundaries where nature has none. Relating those morphology maps to the Mars Climate Database shows dune-free regions coincide with the thickest seasonal ice, and that asymmetric dunes concentrate where winds are most bimodal.</p>
       <p><a href="https://doi.org/10.1029/2025JH000997">Read the paper</a></p>
     </div>
     <figure>
-      <img src="images/autoencoder-classification.png" alt="Continuous clustering of dune morphologies projected onto Mars' north pole, beside modelled ice thickness and wind seasonality">
+      <a class="zoom plain" href="images/autoencoder-classification.png">
+        <picture>
+          <source srcset="images/autoencoder-classification.webp" type="image/webp">
+          <img src="images/autoencoder-classification.png" alt="Continuous clustering of dune morphologies projected onto Mars' north pole, beside modelled ice thickness and wind seasonality" width="1376" height="1372" loading="lazy">
+        </picture>
+      </a>
       <figcaption>Continuous morphology classification vs. seasonal ice and wind seasonality — MRO CTX, LMD MCD</figcaption>
     </figure>
   </div>
 
-  <div class="project">
+  <div class="project flip" id="r-cold-traps">
     <div>
+      <p class="tags"><span>Moon</span><span>LROC NAC</span><span>Thermal modelling</span></p>
       <h3>The ephemeral state of ice in micro cold traps on the Moon</h3>
       <p>Micro cold traps — shadows cast by topography at centimetre to hundred-metre scales — are attractive targets for in-situ exploration because they are easy to reach. But how much ice can they actually hold? Using a 3-D thermal illumination model over rescaled LROC NAC terrain, I computed the permanently shadowed <em>volume</em> rather than area, across 140 simulated maps spanning latitudes 75°–90°.</p>
       <p>Shadow depth scales at roughly 0.5–1% of a cold trap's lateral size, far shallower than the topography casting it. Comparing that capacity against destruction rates from impact gardening implies a metre-scale cold trap holds ice for only 200–300 ka — so a randomly chosen one will most likely be found empty. Even completely filled, the total volume available to micro cold traps is around two orders of magnitude below Shoemaker crater alone.</p>
       <p><a href="https://doi.org/10.1016/j.icarus.2024.116199">Read the paper</a></p>
     </div>
     <figure>
-      <img src="images/micro-cold-traps.png" alt="Three-dimensional visualisation of permanently shadowed volume over rough lunar terrain">
+      <a class="zoom plain" href="images/micro-cold-traps.png">
+        <picture>
+          <source srcset="images/micro-cold-traps.webp" type="image/webp">
+          <img src="images/micro-cold-traps.png" alt="Three-dimensional visualisation of permanently shadowed volume over rough lunar terrain" width="2034" height="1400" loading="lazy">
+        </picture>
+      </a>
       <figcaption>Permanently shadowed volume over realistic lunar relief — LROC NAC DTM</figcaption>
     </figure>
   </div>
 
-  <div class="project">
+  <div class="project" id="r-winds">
     <div>
+      <p class="tags"><span>Mars</span><span>CTX</span><span>Deep learning</span></p>
       <h3>Mapping Mars' surface winds from barchan morphology</h3>
       <p>Mars has no meteorological network, so its dunes have to serve as the anemometers. Barchans form under roughly unimodal winds, which makes their slipface and horn orientations a direct proxy for sediment transport direction. Here we derived migration directions for over 700,000 barchans outlined globally by a neural network in MRO CTX imagery.</p>
       <p>Migration follows continuous pathways thousands of kilometres long, aligned with southern-summer circulation and, strikingly, with mapped dust-storm tracks. Near the north pole we resolve an anti-cyclonic wind corridor that current GCMs miss entirely. Locally, topography takes over: the correlation between wind dispersion and roughness holds below roughly 10–50 km and vanishes above 100 km, meaning craters smaller than that deflect the winds that fill them.</p>
       <p><a href="https://doi.org/10.1029/2022GL102610">Read the paper</a></p>
     </div>
     <figure>
-      <img src="images/global-winds.png" alt="Global map of barchan dune migration directions on Mars over MOLA shaded relief">
+      <a class="zoom plain" href="images/global-winds.png">
+        <picture>
+          <source srcset="images/global-winds.webp" type="image/webp">
+          <img src="images/global-winds.png" alt="Global map of barchan dune migration directions on Mars over MOLA shaded relief" width="2388" height="2090" loading="lazy">
+        </picture>
+      </a>
       <figcaption>Global barchan migration directions over MOLA relief — MRO CTX</figcaption>
     </figure>
   </div>
 
-  <div class="project">
+  <div class="project flip" id="r-ripples">
     <div>
+      <p class="tags"><span>Mars</span><span>CTX · MOLA</span><span>Bedform physics</span></p>
       <h3>A distinct ripple-formation regime on Mars</h3>
       <p>Mars carries a third class of bedform that Earth does not: metre-scale ripples, intermediate between decimetre impact ripples and dunes. Two explanations competed — that they are simply overgrown impact ripples, or that they arise from the same hydrodynamic instability that builds dunes and subaqueous bedforms. The two make different, testable predictions about how bedform size responds to atmospheric density.</p>
       <p>Measuring the morphometrics of over a million barchans across Mars, we found the smallest dunes shrink as atmospheric density rises, with a power-law exponent near −2/3 — the same value derived empirically for subaqueous ripples, and squarely within the range hydrodynamic theory predicts. Dune and large-ripple sizes together bracket a forbidden gap in bedform wavelengths. Ancient aeolian sandstones may therefore record the density of the atmosphere they formed under.</p>
       <p><a href="https://doi.org/10.1038/s41467-022-34974-3">Read the paper</a></p>
     </div>
     <figure>
-      <img src="images/ripple-regime.png" alt="Dune length and large-ripple wavelength decreasing with atmospheric density, bounding a gap in bedform sizes">
+      <a class="zoom plain" href="images/ripple-regime.png">
+        <picture>
+          <source srcset="images/ripple-regime.webp" type="image/webp">
+          <img src="images/ripple-regime.png" alt="Dune length and large-ripple wavelength decreasing with atmospheric density, bounding a gap in bedform sizes" width="2256" height="1814" loading="lazy">
+        </picture>
+      </a>
       <figcaption>Bedform size vs. atmospheric density, bounding the hydrodynamic gap — MRO CTX, MOLA</figcaption>
     </figure>
   </div>
 
-  <div class="project">
+  <div class="project" id="r-dunes">
     <div>
+      <p class="tags"><span>Mars</span><span>CTX</span><span>Instance segmentation</span></p>
       <h3>Detecting and segmenting barchan dunes on Mars</h3>
       <p>In this project I am leading an effort to automatically detect and outline barchan dunes on Mars to extract local and global wind directions. I use <a href="https://github.com/matterport/Mask_RCNN">Mask R-CNN</a>, an instance segmentation neural network, to find dunes in images obtained by the Mars Reconnaissance Orbiter Context Camera (CTX). The network outputs the dunes' outlines, which are automatically analyzed using a slipface detection algorithm we developed, based on OpenCV's convexity defects algorithm.</p>
       <p><a href="https://ieeexplore.ieee.org/abstract/document/9529043/">Read the paper</a></p>
     </div>
     <figure>
-      <img src="images/dune-detection.png" alt="Detected barchan dunes with derived wind directions marked by arrows">
+      <a class="zoom plain" href="images/dune-detection.png">
+        <picture>
+          <source srcset="images/dune-detection.webp" type="image/webp">
+          <img src="images/dune-detection.png" alt="Detected barchan dunes with derived wind directions marked by arrows" width="427" height="431" loading="lazy">
+        </picture>
+      </a>
       <figcaption>Detected dunes and derived wind directions (red arrows) — MRO CTX</figcaption>
     </figure>
   </div>
 
-  <div class="project">
+  <div class="project flip" id="r-gan">
     <div>
+      <p class="tags"><span>Craters</span><span>GANs</span><span>Few-shot learning</span></p>
       <h3>Training a crater detector on a few dozen samples</h3>
       <p>Classification of imagery data usually requires an expert human analyst to label and classify topographic features. Even binary classification using a fully convolutional neural network will typically have trouble converging until several hundred images have been labeled. Here I explore how generative adversarial networks can train a binary classifier to detect impact craters with only a few dozen training samples.</p>
       <p>The model reaches 90% accuracy with 50 samples, where a fully convolutional network cannot converge at all on a dataset that small.</p>
       <p><a href="https://github.com/liorruba/crater_classification">See the code on GitHub</a></p>
     </div>
     <figure>
-      <img src="images/gan-latent-space.png" alt="Snapshot of the SGAN model latent space after training">
+      <a class="zoom plain" href="images/gan-latent-space.png">
+        <picture>
+          <source srcset="images/gan-latent-space.webp" type="image/webp">
+          <img src="images/gan-latent-space.png" alt="Snapshot of the SGAN model latent space after training" width="432" height="288" loading="lazy">
+        </picture>
+      </a>
       <figcaption>SGAN latent space after 20 epochs of training</figcaption>
     </figure>
   </div>
@@ -522,7 +845,10 @@ footer{position:relative;margin-top:40px}
 <section id="publications" class="reveal">
   <p class="eyebrow">Publications</p>
   <h2>Peer-reviewed journals and books</h2>
-  <p class="pub-status" id="pub-status"></p>
+  <div class="pub-tools">
+    <div class="chips" id="pub-chips" role="group" aria-label="Filter publications by topic"></div>
+    <p class="pub-status" id="pub-status"></p>
+  </div>
   <ol class="pubs" id="pub-list">
     <li>Williams, J.P. and Rubanenko, L., 2024. Cold-trapped ices at the poles of Mercury and the Moon. In <em>Ices in the Solar System</em> (pp. 1–29). Elsevier. <a href="https://www.sciencedirect.com/science/article/abs/pii/B978032399324100002X">Link</a></li>
     <li>Rubanenko, L., Gunn, A., Pérez-López, S., Fenton, L.K., Ewing, R.C., Soto, A. and Lapôtre, M.G.A., 2023. Global surface winds and aeolian sediment pathways on Mars from the morphology of barchan dunes. <em>Geophysical Research Letters</em>, 50(18), p.e2022GL102610. <a href="https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2022GL102610">Link</a></li>
@@ -564,11 +890,26 @@ footer{position:relative;margin-top:40px}
 <section id="press" class="reveal">
   <p class="eyebrow">Press</p>
   <ul class="press">
-    <li><a href="https://www.universetoday.com/158896/mars-has-bizarre-dunes-thanks-to-its-low-atmospheric-pressure-and-strange-winds/"><span class="outlet">Universe Today</span><span class="headline">Mars has bizarre dunes thanks to its low atmospheric pressure and strange winds</span></a></li>
-    <li><a href="https://www.nasa.gov/feature/goddard/2019/moon-mercury-ice/"><span class="outlet">NASA</span><span class="headline">The Moon and Mercury may have thick ice deposits</span></a></li>
-    <li><a href="https://www.foxnews.com/science/moon-and-mercury-thick-deposits-ice"><span class="outlet">Fox News</span><span class="headline">Moon and Mercury have thick deposits of ice</span></a></li>
-    <li><a href="https://www.express.co.uk/news/science/1161390/Water-on-the-Moon-NASA-news-lunar-water-Mercury-ice-craters-UCLA"><span class="outlet">Daily Express</span><span class="headline">Water on the Moon</span></a></li>
-    <li><a href="https://www.dailymail.co.uk/sciencetech/article-7286869/Scientists-say-moon-lots-ice-buried-beneath-surface.html"><span class="outlet">Daily Mail</span><span class="headline">The Moon has 'lots of ice' buried beneath the surface</span></a></li>
+    <li><a href="https://www.universetoday.com/158896/mars-has-bizarre-dunes-thanks-to-its-low-atmospheric-pressure-and-strange-winds/" class="plain">
+      <img src="images/press-universe-today.webp" alt="" loading="lazy" width="600" height="375">
+      <span class="press-body"><span class="outlet">Universe Today</span><span class="headline">Mars has bizarre dunes thanks to its low atmospheric pressure and strange winds</span></span>
+    </a></li>
+    <li><a href="https://www.nasa.gov/feature/goddard/2019/moon-mercury-ice/" class="plain">
+      <img src="images/press-nasa.webp" alt="" loading="lazy" width="600" height="375">
+      <span class="press-body"><span class="outlet">NASA</span><span class="headline">The Moon and Mercury may have thick ice deposits</span></span>
+    </a></li>
+    <li><a href="https://www.foxnews.com/science/moon-and-mercury-thick-deposits-ice" class="plain">
+      <img src="images/press-fox.webp" alt="" loading="lazy" width="600" height="375">
+      <span class="press-body"><span class="outlet">Fox News</span><span class="headline">Moon and Mercury have thick deposits of ice</span></span>
+    </a></li>
+    <li><a href="https://www.express.co.uk/news/science/1161390/Water-on-the-Moon-NASA-news-lunar-water-Mercury-ice-craters-UCLA" class="plain">
+      <img src="images/press-express.webp" alt="" loading="lazy" width="600" height="375">
+      <span class="press-body"><span class="outlet">Daily Express</span><span class="headline">Water on the Moon</span></span>
+    </a></li>
+    <li><a href="https://www.dailymail.co.uk/sciencetech/article-7286869/Scientists-say-moon-lots-ice-buried-beneath-surface.html" class="plain">
+      <img src="images/press-dailymail.webp" alt="" loading="lazy" width="600" height="375">
+      <span class="press-body"><span class="outlet">Daily Mail</span><span class="headline">The Moon has 'lots of ice' buried beneath the surface</span></span>
+    </a></li>
   </ul>
 </section>
 
@@ -633,13 +974,21 @@ footer{position:relative;margin-top:40px}
 
 </div>
 
+<dialog class="lightbox" id="lightbox" aria-label="Enlarged figure">
+  <button type="button" aria-label="Close">×</button>
+  <img alt="">
+  <p></p>
+</dialog>
+
 <script>
+var REDUCE_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 // ---- starfield ----
 (function(){
   var c = document.getElementById('stars');
   var ctx = c.getContext('2d');
   var stars = [];
-  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var reduce = REDUCE_MOTION;
 
   function build(){
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -690,6 +1039,157 @@ footer{position:relative;margin-top:40px}
   });
 })();
 
+// ---- planets drifting along the ecliptic ----
+(function(){
+  var hero = document.querySelector('header.hero');
+  var c = document.getElementById('planets');
+  if (!hero || !c || !c.getContext) return;
+  var ctx = c.getContext('2d');
+  var W = 0, H = 0, S = 1;
+
+  // v: drift speed in px/s (eastward, i.e. right-to-left as seen facing south).
+  // x0: starting position as a fraction of the width.
+  var planets = [
+    { name:'Mercury', r:2.3, lit:'#E4DED6', dark:'#6F6962', v:7.0, x0:0.17 },
+    { name:'Venus',   r:3.8, lit:'#FFF7E2', dark:'#C7AE7A', v:5.0, x0:0.33, glow:0.38 },
+    { name:'Mars',    r:3.0, lit:'#F4A774', dark:'#8E3A22', v:3.4, x0:0.55 },
+    { name:'Jupiter', r:6.4, lit:'#F3E6CC', dark:'#A98760', v:1.8, x0:0.74, bands:true },
+    { name:'Saturn',  r:5.0, lit:'#F2E2B2', dark:'#A68D5B', v:1.2, x0:0.90, ring:true }
+  ];
+
+  // The ecliptic as a gentle arc rising to the right, kept above the name.
+  function eclY(x){
+    var u = x / W;
+    var base = H < 560 ? 0.30 : 0.32;
+    return H * (base - 0.12 * Math.sin(Math.PI * u) + 0.07 * (u - 0.5) * -1);
+  }
+  function eclAngle(x){
+    return Math.atan2(eclY(x + 1) - eclY(x - 1), 2);
+  }
+
+  function size(){
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = hero.clientWidth; H = hero.clientHeight;
+    c.width = W * dpr; c.height = H * dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    S = Math.max(1, Math.min(W / 1100, 1.6));
+  }
+
+  function disc(p, x, y, r){
+    // Sunlight arrives along the ecliptic from the west (right).
+    var g = ctx.createRadialGradient(x + r*0.35, y - r*0.3, r*0.1, x, y, r*1.05);
+    g.addColorStop(0, p.lit);
+    g.addColorStop(0.7, p.dark);
+    g.addColorStop(1, 'rgba(20,20,30,1)');
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI*2);
+    ctx.fillStyle = g;
+    ctx.fill();
+  }
+
+  function drawPlanet(p, x){
+    var y = eclY(x);
+    var r = p.r * S;
+    var ang = eclAngle(x);
+
+    // halo
+    var hr = r * (p.glow ? 7 : 4.5);
+    var halo = ctx.createRadialGradient(x, y, 0, x, y, hr);
+    halo.addColorStop(0, 'rgba(255,244,220,' + (p.glow || 0.16) + ')');
+    halo.addColorStop(1, 'rgba(255,244,220,0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(x, y, hr, 0, Math.PI*2); ctx.fill();
+
+    var ringTilt = ang - 0.42;
+    if (p.ring){
+      // far half of the ring, behind the planet
+      ctx.strokeStyle = 'rgba(226,210,166,.55)';
+      ctx.lineWidth = r * 0.42;
+      ctx.beginPath(); ctx.ellipse(x, y, r*2.25, r*0.62, ringTilt, Math.PI, Math.PI*2); ctx.stroke();
+    }
+
+    disc(p, x, y, r);
+
+    if (p.bands){
+      ctx.save();
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.clip();
+      ctx.translate(x, y); ctx.rotate(ang);
+      ctx.fillStyle = 'rgba(128,86,52,.38)';
+      ctx.fillRect(-r, -r*0.42, r*2, r*0.2);
+      ctx.fillRect(-r,  r*0.14, r*2, r*0.24);
+      ctx.fillStyle = 'rgba(128,86,52,.2)';
+      ctx.fillRect(-r,  r*0.58, r*2, r*0.12);
+      ctx.restore();
+    }
+
+    if (p.ring){
+      // near half, in front of the planet
+      ctx.strokeStyle = 'rgba(236,222,180,.8)';
+      ctx.lineWidth = r * 0.42;
+      ctx.beginPath(); ctx.ellipse(x, y, r*2.25, r*0.62, ringTilt, 0, Math.PI); ctx.stroke();
+    }
+
+    ctx.font = '500 9px "IBM Plex Mono", ui-monospace, monospace';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '1.5px';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(166,174,194,.42)';
+    ctx.fillText(p.name.toUpperCase(), x, y + r + (p.ring ? 17 : 15));
+  }
+
+  function drawEcliptic(){
+    ctx.save();
+    ctx.setLineDash([1.5, 7]);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(166,174,194,.14)';
+    ctx.beginPath();
+    for (var x = 0; x <= W; x += 8){
+      var y = eclY(x);
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  var start = null, running = false, visible = true;
+
+  function frame(t){
+    if (start === null) start = t;
+    var secs = (t - start) / 1000;
+    ctx.clearRect(0, 0, W, H);
+    drawEcliptic();
+    var span = W + 120;
+    for (var i = 0; i < planets.length; i++){
+      var p = planets[i];
+      var x = p.x0 * W - p.v * S * secs;
+      x = ((x + 60) % span + span) % span - 60;
+      drawPlanet(p, x);
+    }
+    if (running) requestAnimationFrame(frame);
+  }
+
+  function play(){
+    if (REDUCE_MOTION){ frame(performance.now()); return; }
+    if (!running && visible){ running = true; requestAnimationFrame(frame); }
+  }
+
+  size();
+  play();
+
+  if ('IntersectionObserver' in window){
+    new IntersectionObserver(function(e){
+      visible = e[0].isIntersecting;
+      if (visible) play(); else running = false;
+    }).observe(hero);
+  }
+
+  var to;
+  window.addEventListener('resize', function(){
+    clearTimeout(to);
+    to = setTimeout(function(){ size(); if (REDUCE_MOTION || !running) frame(performance.now()); }, 150);
+  });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ if (!running) frame(performance.now()); });
+})();
+
 // ---- publications from OpenAlex ----
 (function(){
   var AUTHOR_ID = 'A5033877545';
@@ -722,16 +1222,39 @@ footer{position:relative;margin-top:40px}
   // Force into the CONFERENCE list. Bare DOIs, lowercase.
   var CONF_DOI = [];
 
+  /* ---- DISPLAY RULES ---- */
+
+  // Topic filter chips. A publication matches a topic if its text matches the pattern.
+  var TOPICS = [
+    { key:'moon',    label:'Moon',             re:/\bmoon\b|lunar/i },
+    { key:'mars',    label:'Mars',             re:/\bmars\b|martian|jezero/i },
+    { key:'mercury', label:'Mercury',          re:/mercury/i },
+    { key:'ml',      label:'Machine learning', re:/neural|deep learning|machine learning|autoencoder|artificial intelligence|automatic|segmentation|\bcnn\b|unsupervised|convolutional/i }
+  ];
+
+  // Venues that get a highlight badge.
+  var BADGE_VENUE = /^(nature|science|nature (geoscience|communications|astronomy)|science advances|pnas|proceedings of the national academy of sciences.*|agu advances)$/i;
+
+  // Title pattern → research figure thumbnail and the project it links to.
+  var THUMBS = [
+    { re:/unsupervised|autoencoder/i,                 img:'autoencoder-classification', to:'r-autoencoder' },
+    { re:/ephemeral state of ice|micro cold traps on the moon/i, img:'micro-cold-traps', to:'r-cold-traps' },
+    { re:/global surface winds/i,                     img:'global-winds',   to:'r-winds' },
+    { re:/distinct ripple-formation regime/i,         img:'ripple-regime',  to:'r-ripples' },
+    { re:/detection and segmentation of barchan/i,    img:'dune-detection', to:'r-dunes' }
+  ];
+
   var list = document.getElementById('pub-list');
   var confList = document.getElementById('conf-list');
   var status = document.getElementById('pub-status');
+  var chipBox = document.getElementById('pub-chips');
   if (!list) return;
 
   var url = 'https://api.openalex.org/works'
     + '?filter=author.id:' + AUTHOR_ID
     + '&per-page=200'
     + '&sort=publication_date:desc'
-    + '&select=id,doi,title,publication_year,publication_date,type,authorships,primary_location'
+    + '&select=id,doi,title,publication_year,publication_date,type,authorships,primary_location,cited_by_count'
     + '&mailto=' + encodeURIComponent(MAIL);
 
   function initials(name){
@@ -807,7 +1330,9 @@ footer{position:relative;margin-top:40px}
 
     var line = bits.join(', ') + '.';
     if (w.doi) line += ' <a href="' + w.doi + '">Link</a>';
-    return '<li>' + line + '</li>';
+    return '<li data-year="' + (w.publication_year || '') + '"'
+      + (w.cited_by_count ? ' data-cites="' + w.cited_by_count + '"' : '')
+      + '>' + line + '</li>';
   }
 
   function render(works){
@@ -853,6 +1378,110 @@ footer{position:relative;margin-top:40px}
     return true;
   }
 
+  // Adds year column, topic tags, venue badge, citation count and thumbnail to each <li>.
+  // Runs on both the static fallback list and the OpenAlex list.
+  function enhance(ol){
+    if (!ol) return;
+    Array.prototype.forEach.call(ol.children, function(li){
+      if (li.querySelector('.pb')) return;
+      var text = li.textContent;
+      var year = li.getAttribute('data-year') || (text.match(/\b(19|20)\d{2}\b/) || [''])[0];
+
+      li.setAttribute('data-topics', TOPICS.filter(function(t){ return t.re.test(text); })
+        .map(function(t){ return t.key; }).join(' '));
+
+      var body = document.createElement('div');
+      body.className = 'pb';
+      while (li.firstChild) body.appendChild(li.firstChild);
+
+      var venue = body.querySelector('.venue, em');
+      if (venue && BADGE_VENUE.test(venue.textContent.trim())){
+        var b = document.createElement('span');
+        b.className = 'badge';
+        b.textContent = 'Highlight';
+        venue.parentNode.insertBefore(b, venue.nextSibling);
+      }
+
+      var cites = +li.getAttribute('data-cites');
+      if (cites){
+        var cs = document.createElement('span');
+        cs.className = 'cites';
+        cs.textContent = cites + (cites === 1 ? ' citation' : ' citations');
+        body.appendChild(cs);
+      }
+
+      var y = document.createElement('span');
+      y.className = 'py';
+      y.textContent = year;
+      li.appendChild(y);
+      li.appendChild(body);
+
+      var th = THUMBS.filter(function(t){ return t.re.test(text); })[0];
+      if (th && ol === list){
+        var a = document.createElement('a');
+        a.className = 'pthumb';
+        a.href = '#' + th.to;
+        a.setAttribute('aria-label', 'See research summary');
+        a.innerHTML = '<img src="images/' + th.img + '-thumb.webp" alt="" loading="lazy" width="64" height="64">';
+        li.appendChild(a);
+      } else if (ol === list){
+        li.appendChild(document.createElement('span'));
+      }
+    });
+  }
+
+  var active = 'all';
+
+  function applyFilter(){
+    [list, confList].forEach(function(ol){
+      if (!ol) return;
+      var prevYear = null;
+      Array.prototype.forEach.call(ol.children, function(li){
+        var show = active === 'all' || (' ' + li.getAttribute('data-topics') + ' ').indexOf(' ' + active + ' ') !== -1;
+        li.hidden = !show;
+        if (!show) return;
+        var y = li.querySelector('.py');
+        var yr = y ? y.textContent : '';
+        li.classList.toggle('same-year', yr === prevYear);
+        prevYear = yr;
+      });
+    });
+  }
+
+  function buildChips(){
+    if (!chipBox) return;
+    var all = [].slice.call(list.children).concat(confList ? [].slice.call(confList.children) : []);
+    function count(key){
+      return all.filter(function(li){
+        return key === 'all' || (' ' + li.getAttribute('data-topics') + ' ').indexOf(' ' + key + ' ') !== -1;
+      }).length;
+    }
+    var defs = [{ key:'all', label:'All' }].concat(TOPICS);
+    chipBox.innerHTML = defs.map(function(t){
+      return '<button type="button" class="chip" data-key="' + t.key + '" aria-pressed="' + (t.key === active) + '">'
+        + t.label + '<span class="n">' + count(t.key) + '</span></button>';
+    }).join('');
+  }
+
+  if (chipBox){
+    chipBox.addEventListener('click', function(e){
+      var btn = e.target.closest('.chip');
+      if (!btn) return;
+      active = btn.getAttribute('data-key');
+      [].forEach.call(chipBox.children, function(b){ b.setAttribute('aria-pressed', b === btn); });
+      applyFilter();
+    });
+  }
+
+  function refresh(){
+    enhance(list);
+    enhance(confList);
+    buildChips();
+    applyFilter();
+  }
+
+  refresh();
+
   fetch(url)
     .then(function(r){
       if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -860,6 +1489,7 @@ footer{position:relative;margin-top:40px}
     })
     .then(function(data){
       if (render(data.results || [])){
+        refresh();
         if (status) status.innerHTML = 'Source: <a href="https://openalex.org/' + AUTHOR_ID + '">OpenAlex</a>';
       }
     })
@@ -905,15 +1535,66 @@ footer{position:relative;margin-top:40px}
   update();
 })();
 
-// ---- nav hairline on scroll ----
+// ---- nav: hairline on scroll, mobile menu ----
 (function(){
   var nav = document.getElementById('nav');
+  var btn = nav.querySelector('.menu-btn');
   function onScroll(){
     if (window.scrollY > 24) nav.classList.add('scrolled');
     else nav.classList.remove('scrolled');
   }
   window.addEventListener('scroll', onScroll, {passive:true});
   onScroll();
+
+  function setOpen(open){
+    nav.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', open);
+  }
+  btn.addEventListener('click', function(){ setOpen(!nav.classList.contains('open')); });
+  nav.querySelectorAll('.navlinks a').forEach(function(a){
+    a.addEventListener('click', function(){ setOpen(false); });
+  });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') setOpen(false); });
+})();
+
+// ---- figure lightbox ----
+(function(){
+  var dlg = document.getElementById('lightbox');
+  if (!dlg || !dlg.showModal) return;
+  var img = dlg.querySelector('img');
+  var cap = dlg.querySelector('p');
+
+  document.addEventListener('click', function(e){
+    var a = e.target.closest('a.zoom');
+    if (!a) return;
+    e.preventDefault();
+    var fig = a.closest('figure');
+    var inner = a.querySelector('img');
+    var fc = fig && fig.querySelector('figcaption');
+    img.src = a.getAttribute('href');
+    img.alt = inner ? inner.alt : '';
+    cap.textContent = fc ? fc.textContent : '';
+    dlg.showModal();
+  });
+  dlg.addEventListener('click', function(){ dlg.close(); });
+  dlg.addEventListener('close', function(){ img.removeAttribute('src'); });
+})();
+
+// ---- research clips: play only while on screen ----
+(function(){
+  var vids = document.querySelectorAll('video.clip');
+  if (!vids.length) return;
+  if (REDUCE_MOTION || !('IntersectionObserver' in window)){
+    vids.forEach(function(v){ v.controls = true; });
+    return;
+  }
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if (e.isIntersecting){ var p = e.target.play(); if (p && p.catch) p.catch(function(){}); }
+      else e.target.pause();
+    });
+  }, {threshold: 0.35});
+  vids.forEach(function(v){ io.observe(v); });
 })();
 
 // ---- reveal on scroll ----
