@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@font-face{font-family:"Inter";src:url("fonts/inter-latin.woff2") format("woff2");font-weight:100 900}
+html,body{margin:0;background:#161A2B}
+canvas{display:block}
+</style>
+</head>
+<body>
+<canvas id="c" width="1200" height="800"></canvas>
+<script>
+// A distinct ripple-formation regime on Mars (Rubanenko et al., 2022): a cartoon explainer, 30 s loop.
+var W = 1200, H = 800, DUR = 40;
+var c = document.getElementById('c'), ctx = c.getContext('2d');
+var ICE = '143,211,232';
+
+// ---------- helpers ----------
+function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
+function seg(t,a,b){ return clamp((t-a)/(b-a), 0, 1); }
+function ease(x){ return x<.5 ? 4*x*x*x : 1-Math.pow(-2*x+2,3)/2; }
+function easeOut(x){ return 1-Math.pow(1-x,3); }
+function lerp(a,b,p){ return a + (b-a)*p; }
+function lerp3(a,b,p){ return [lerp(a[0],b[0],p), lerp(a[1],b[1],p), lerp(a[2],b[2],p)]; }
+function rgb(v, a){ return 'rgba(' + Math.round(v[0]) + ',' + Math.round(v[1]) + ',' + Math.round(v[2]) + ',' + (a === undefined ? 1 : a) + ')'; }
+function sm(u){ u = clamp(u, 0, 1); return u*u*(3 - 2*u); }
+function frac(x){ return x - Math.floor(x); }
+function rng(seed){ return function(){ seed = (seed*16807) % 2147483647; return (seed-1)/2147483646; }; }
+function rrect(x,y,w,h,r){ ctx.beginPath(); ctx.roundRect(x,y,w,h,r); }
+function loopSin(t, k, ph){ return Math.sin(2*Math.PI*k*t/DUR + (ph||0)); }
+function asym(p, crest){ return p < crest ? sm(p/crest) : sm((1 - p)/(1 - crest)); }
+function pill(text, x, y, a, bg){
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.font = '600 23px Inter';
+  var w = ctx.measureText(text).width + 32;
+  rrect(x - w/2, y - 20, w, 40, 20); ctx.fillStyle = bg || 'rgba(14,17,32,.84)'; ctx.fill();
+  ctx.fillStyle = bg ? '#0E1120' : '#F3F5F9'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x, y + 1);
+  ctx.restore();
+}
+function leader(x0, y0, x1, y1, a){
+  if (a <= 0) return;
+  ctx.strokeStyle = 'rgba(14,17,32,' + (.75*a) + ')'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  ctx.fillStyle = 'rgba(14,17,32,' + a + ')'; ctx.beginPath(); ctx.arc(x1, y1, 4.5, 0, 7); ctx.fill();
+}
+
+// ---------- state over time ----------
+// m: 0 = Earth, 1 = Mars.  k: air density relative to today's Mars; bedform size scales as k^(-2/3).
+function planetAt(t){ return ease(seg(t, 7.4, 8.4)) * (1 - ease(seg(t, 39.3, 39.98))); }
+function densityAt(t){
+  var up = ease(seg(t, 15.5, 16.8)), down = ease(seg(t, 17.2, 18.3)), home = ease(seg(t, 18.5, 19.1));
+  var lk = lerp(lerp(Math.log(2.6)*up, Math.log(.5), down), 0, home);
+  return Math.exp(lk);
+}
+// a too-small dune that tries to grow and is flattened
+function bumpAt(t){ return 32*ease(seg(t, 26.6, 27.6))*(1 - ease(seg(t, 28.6, 30.4))); }
+var BUMP_X = 420;
+
+// camera sinks below the surface to look at the rock record, then rises again
+function sinkAt(t){ return ease(seg(t, 31.6, 33.6)) - ease(seg(t, 37.6, 39.0)); }
+
+// ---------- the sand surface ----------
+var BASE = 470, X0 = 600;
+function geom(m, f){ return { ld: lerp(330, 620, m)*f, hd: lerp(70, 135, m)*f, lr: 13*m*f, ll: 62*f }; }
+function duneP(x, g){ return frac((x - X0)/g.ld + .35); }
+function surface(x, m, f, bump){
+  var g = geom(m, f), p = duneP(x, g), stoss = p < .8 ? sm(p/.12)*sm((.8 - p)/.1) : 0;
+  var y = g.hd*asym(p, .8);
+  y += g.lr*stoss*asym(frac((x - X0)/g.ll + .2), .72);
+  y += 1.6*asym(frac(x/10), .7);
+  if (bump) y += bump*Math.exp(-Math.pow((x - BUMP_X)/46, 2))*(x < BUMP_X + 20 ? 1 : .8);
+  return y;
+}
+
+var SKY_E = [[118,176,226],[206,230,245]], SKY_M = [[196,140,104],[236,196,150]];
+var SAND_E = [[236,206,152],[196,160,104]], SAND_M = [[224,154,98],[185,103,60]];
+function drawSky(m, k){
+  var haze = clamp((k - 1)/1.6, 0, 1)*m, thin = clamp((1 - k)/.5, 0, 1)*m;
+  var top = lerp3(SKY_E[0], SKY_M[0], m), bot = lerp3(SKY_E[1], SKY_M[1], m);
+  top = lerp3(lerp3(top, [172,120,100], thin), [205,160,140], haze);
+  bot = lerp3(bot, [238,208,180], haze);
+  var g = ctx.createLinearGradient(0, 0, 0, BASE);
+  g.addColorStop(0, rgb(top)); g.addColorStop(1, rgb(bot));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
+function drawGround(m, f, bump){
+  var g = geom(m, f), x;
+  ctx.beginPath(); ctx.moveTo(-10, H + 700);
+  for (x = -10; x <= W + 10; x += 2) ctx.lineTo(x, BASE - surface(x, m, f, bump));
+  ctx.lineTo(W + 10, H + 700); ctx.closePath();
+  var gr = ctx.createLinearGradient(0, BASE - 130, 0, BASE + 260);
+  gr.addColorStop(0, rgb(lerp3(SAND_E[0], SAND_M[0], m))); gr.addColorStop(1, rgb(lerp3(SAND_E[1], SAND_M[1], m)));
+  ctx.fillStyle = gr; ctx.fill();
+  // ancient sandstone below the loose sand
+  ctx.save(); ctx.globalAlpha = 1 - m; ctx.drawImage(STRATA_E, 0, BASE + 150); ctx.globalAlpha = m; ctx.drawImage(STRATA_M, 0, BASE + 150); ctx.restore();
+  var sb = lerp3(lerp3(SAND_E[0], SAND_E[1], .72), lerp3(SAND_M[0], SAND_M[1], .72), m);
+  var fade = ctx.createLinearGradient(0, BASE + 140, 0, BASE + 215);
+  fade.addColorStop(0, rgb(sb)); fade.addColorStop(1, rgb(sb, 0));
+  ctx.fillStyle = fade; ctx.fillRect(0, BASE + 140, W, 75);
+  for (x = -10; x <= W + 10; x += 2){
+    var p = duneP(x, g);
+    if (p < .8) continue;
+    var a = .26*sm((p - .8)/.03)*sm((1 - p)/.04), sy0 = BASE - surface(x, m, f, bump);
+    ctx.strokeStyle = 'rgba(110,45,20,' + a + ')'; ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.moveTo(x, sy0); ctx.lineTo(x, sy0 + 34); ctx.stroke();
+  }
+  ctx.beginPath();
+  for (x = -10; x <= W + 10; x += 2) x === -10 ? ctx.moveTo(x, BASE - surface(x, m, f, bump)) : ctx.lineTo(x, BASE - surface(x, m, f, bump));
+  ctx.strokeStyle = 'rgba(255,240,215,.85)'; ctx.lineWidth = 2.5; ctx.stroke();
+}
+
+// Sandstone texture: cross-bedded sets with gently undulating bounding surfaces, no hard lines.
+function makeStrata(base, seed){
+  var SH = 1000, cv = document.createElement('canvas'); cv.width = W; cv.height = SH;
+  var g = cv.getContext('2d'), r = rng(seed), x, y = -10, sets = [];
+  while (y < SH){ var h = 48 + r()*52; sets.push({ y:y, h:h, tone:(r() - .5)*.24, ph:r()*6.28, amp:2 + r()*5, run:1.2 + r()*.9 }); y += h; }
+  function bound(st, xx){ return st.y + st.amp*Math.sin(xx/150 + st.ph) + 1.6*Math.sin(xx/41 + st.ph*2); }
+  sets.forEach(function(st, i){
+    var nx = sets[i+1];
+    g.beginPath(); g.moveTo(0, bound(st, 0));
+    for (x = 0; x <= W; x += 10) g.lineTo(x, bound(st, x));
+    for (x = W; x >= 0; x -= 10) g.lineTo(x, nx ? bound(nx, x) : SH);
+    g.closePath();
+    g.fillStyle = rgb(base.map(function(v){ return v*(1 + st.tone); })); g.fill();
+    g.save(); g.clip();
+    for (var x0 = -160 + r()*20; x0 < W + 160; x0 += 6 + r()*4){
+      var al = .04 + r()*.08, top = st.y - 6, d = st.h + 14;
+      g.strokeStyle = r() < .5 ? 'rgba(255,236,212,' + al + ')' : 'rgba(80,34,16,' + al + ')';
+      g.lineWidth = 1 + r()*1.4;
+      // foreset: steep near the top, flattening onto the base of the set
+      g.beginPath(); g.moveTo(x0, top); g.quadraticCurveTo(x0 + d*.45*st.run, top + d*1.02, x0 + d*1.5*st.run, top + d); g.stroke();
+    }
+    g.restore();
+  });
+  for (var i=0;i<9000;i++){
+    g.fillStyle = r() < .5 ? 'rgba(255,240,220,' + (.05 + r()*.08) + ')' : 'rgba(60,24,10,' + (.05 + r()*.08) + ')';
+    g.fillRect(r()*W, r()*SH, 1 + r()*1.5, 1 + r()*1.5);
+  }
+  var dk = g.createLinearGradient(0, 0, 0, SH);
+  dk.addColorStop(0, 'rgba(40,15,5,0)'); dk.addColorStop(1, 'rgba(40,15,5,.35)');
+  g.fillStyle = dk; g.fillRect(0, 0, W, SH);
+  return cv;
+}
+var STRATA_E = makeStrata([204,168,114], 31), STRATA_M = makeStrata([178,100,60], 31);
+
+// ---------- wind and air ----------
+var WIND = [], MOL = [];
+(function(){
+  var r = rng(8), i;
+  for (i=0;i<14;i++) WIND.push({ y:70 + r()*260, ph:r(), k:3 + Math.floor(r()*2), L:60 + r()*80 });
+  for (i=0;i<130;i++) MOL.push({ x:r()*W, y:40 + r()*330, ph:r()*6.28, k:1 + Math.floor(r()*3) });
+})();
+function drawWind(t, a){
+  if (a <= 0) return;
+  ctx.lineCap = 'round'; ctx.lineWidth = 3;
+  WIND.forEach(function(w){
+    var x = frac(w.k*t/DUR + w.ph)*(W + 400) - 200;
+    ctx.strokeStyle = 'rgba(255,250,242,' + (.45*a) + ')';
+    ctx.beginPath(); ctx.moveTo(x, w.y); ctx.quadraticCurveTo(x + w.L*.5, w.y - 5, x + w.L, w.y); ctx.stroke();
+  });
+}
+function drawMolecules(t, k, a){
+  if (a <= 0) return;
+  MOL.forEach(function(mo, i){
+    var vis = clamp(40*k - i, 0, 1);
+    if (vis <= 0) return;
+    ctx.fillStyle = 'rgba(255,255,255,' + (.75*a*vis) + ')';
+    ctx.beginPath(); ctx.arc(mo.x + 14*loopSin(t, mo.k*3, mo.ph), mo.y + 10*loopSin(t, mo.k*4, mo.ph + 1), 4, 0, 7); ctx.fill();
+  });
+}
+function drawSlider(k, a){
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  rrect(40, 36, 360, 92, 18); ctx.fillStyle = 'rgba(14,17,32,.84)'; ctx.fill();
+  ctx.font = '600 21px Inter'; ctx.fillStyle = '#F3F5F9'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('AIR DENSITY', 64, 64);
+  ctx.font = '500 17px Inter'; ctx.fillStyle = 'rgba(243,245,249,.7)';
+  ctx.fillText('thin', 64, 104); ctx.textAlign = 'right'; ctx.fillText('dense', 376, 104);
+  var x0 = 116, x1 = 316, p = (Math.log(k) - Math.log(.5))/(Math.log(2.6) - Math.log(.5));
+  ctx.strokeStyle = 'rgba(243,245,249,.35)'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x0, 104); ctx.lineTo(x1, 104); ctx.stroke();
+  ctx.strokeStyle = 'rgb(' + ICE + ')'; ctx.beginPath(); ctx.moveTo(x0, 104); ctx.lineTo(lerp(x0, x1, p), 104); ctx.stroke();
+  ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.arc(lerp(x0, x1, p), 104, 11, 0, 7); ctx.fill();
+  ctx.restore();
+}
+
+// ---------- round zoom window ----------
+// kind: 'impact' (Earth sand), 'large' (Mars large ripples with impact ripples on them), 'flow' (+ airflow)
+function drawLens(t, kind, a, open, px, py, lx, ly, label, f, m){
+  if (a <= 0 || open <= 0) return;
+  var R = 138*open, cx = lerp(px, lx, open), cy = lerp(py, ly, open);
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.strokeStyle = 'rgba(14,17,32,.7)'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(cx + R*.55, cy + R*.84); ctx.stroke();
+  ctx.fillStyle = 'rgba(14,17,32,.8)'; ctx.beginPath(); ctx.arc(px, py, 5, 0, 7); ctx.fill();
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.clip();
+  var sky = ctx.createLinearGradient(0, cy - R, 0, cy + R);
+  sky.addColorStop(0, rgb(lerp3([150,196,236], [233,194,154], m))); sky.addColorStop(1, rgb(lerp3([214,236,248], [243,217,184], m)));
+  ctx.fillStyle = sky; ctx.fillRect(cx - R, cy - R, 2*R, 2*R);
+  var prof = function(u){
+    if (kind === 'impact') return 40 - 18*asym(frac(u*6), .72);
+    var n = .85/f;                                        // large ripples: fewer, bigger when the air is thin
+    return 62 - 55*f*asym(frac(u*n + .08), .68) - 18*asym(frac(u*5.5), .72);
+  };
+  ctx.beginPath(); ctx.moveTo(cx - R, cy + R);
+  for (var x = cx - R; x <= cx + R; x += 1) ctx.lineTo(x, cy + prof((x - cx)/(2*R) + .5)*open);
+  ctx.lineTo(cx + R, cy + R); ctx.closePath();
+  var g = ctx.createLinearGradient(0, cy - 20, 0, cy + R);
+  g.addColorStop(0, rgb(lerp3([236,206,152], [224,154,98], m))); g.addColorStop(1, rgb(lerp3([200,166,110], [197,117,68], m)));
+  ctx.fillStyle = g; ctx.fill();
+  ctx.strokeStyle = 'rgba(255,240,215,.9)'; ctx.lineWidth = 3; ctx.stroke();
+  if (kind === 'flow'){
+    ctx.lineWidth = 3; ctx.setLineDash([16, 12]); ctx.lineDashOffset = -t*90;
+    for (var s=1;s<=4;s++){
+      ctx.strokeStyle = 'rgba(255,255,255,' + (.8 - s*.12) + ')';
+      ctx.beginPath();
+      for (x = cx - R; x <= cx + R; x += 3){
+        var yy = cy + prof((x - cx)/(2*R) + .5)*open - s*26 - 6;
+        var damp = Math.exp(-s*.45);
+        var base = cy + 40*open - s*26 - 6;
+        yy = lerp(base, yy, damp);
+        x === cx - R ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy);
+      }
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
+  ctx.restore();
+  ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 16;
+  ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
+  ctx.restore();
+  pill(label, cx, cy + R + 32, a*seg(open, .8, 1), 'rgb(' + ICE + ')');
+}
+
+// dimension bracket over one dune
+function bracket(x0, x1, y, text, a){
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.strokeStyle = '#0E1120'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x0, y + 14); ctx.lineTo(x0, y); ctx.lineTo(x1, y); ctx.lineTo(x1, y + 14); ctx.stroke();
+  ctx.restore();
+  pill(text, (x0 + x1)/2, y - 30, a, 'rgb(' + ICE + ')');
+}
+
+// ---------- airflow over the landscape ----------
+function drawFlow(t, m, f, a){
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.lineWidth = 3; ctx.setLineDash([22, 16]); ctx.lineDashOffset = -t*140; ctx.lineCap = 'round';
+  for (var s=1;s<=6;s++){
+    var damp = Math.exp(-s*.38);
+    ctx.strokeStyle = 'rgba(255,255,255,' + (.75 - s*.08) + ')';
+    ctx.beginPath();
+    for (var x = -10; x <= W + 10; x += 4){
+      var y = BASE - surface(x, m, f, 0)*damp - s*42;
+      x === -10 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+// turbulent eddies over the too-small dune
+function drawEddies(t, a){
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a; ctx.lineCap = 'round';
+  for (var i=0;i<6;i++){
+    var ex = BUMP_X - 10 + i*34 + 24*frac(t*.8 + i*.2), ey = BASE - 58 - (i % 2)*30, r0 = 20 + (i % 3)*6, rot = t*6 + i;
+    ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 4;
+    ctx.beginPath();
+    for (var k=0;k<=30;k++){ var th = rot + k/30*4.4, rr = r0*(1 - k/40); k ? ctx.lineTo(ex + rr*Math.cos(th), ey + rr*Math.sin(th)) : ctx.moveTo(ex + rr*Math.cos(th), ey + rr*Math.sin(th)); }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ---------- chart ----------
+var CH = { x0:210, x1:1030, y0:120, y1:560 };
+var DOTS = [];
+(function(){
+  var r = rng(12);
+  for (var i=0;i<34;i++) DOTS.push({ line:0, u:r(), e:(r()-.5)*28 });
+  for (i=0;i<30;i++) DOTS.push({ line:1, u:r(), e:(r()-.5)*24 });
+})();
+function lineY(line, u){ var y = CH.y0 + (line ? 250 : 40); return lerp(y, y + 170, u); }
+function drawChart(t, a){
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  rrect(120, 50, 960, 600, 22); ctx.fillStyle = 'rgba(14,17,32,.92)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(243,245,249,.55)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(CH.x0, CH.y0 - 20); ctx.lineTo(CH.x0, CH.y1); ctx.lineTo(CH.x1 + 20, CH.y1); ctx.stroke();
+  ctx.font = '600 21px Inter'; ctx.fillStyle = 'rgba(243,245,249,.85)'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('AIR DENSITY  →', (CH.x0 + CH.x1)/2, CH.y1 + 16);
+  ctx.save(); ctx.translate(CH.x0 - 36, (CH.y0 + CH.y1)/2); ctx.rotate(-Math.PI/2); ctx.fillText('SIZE', 0, -12); ctx.restore();
+  var gp = seg(t, 21.0, 21.5);
+  if (gp > 0){
+    ctx.beginPath();
+    ctx.moveTo(CH.x0, lineY(0, 0) + 34); ctx.lineTo(CH.x1, lineY(0, 1) + 34); ctx.lineTo(CH.x1, lineY(1, 1) - 34); ctx.lineTo(CH.x0, lineY(1, 0) - 34); ctx.closePath();
+    ctx.fillStyle = 'rgba(' + ICE + ',' + (.16*gp) + ')'; ctx.fill();
+    ctx.save(); ctx.globalAlpha = a*gp;
+    ctx.translate((CH.x0 + CH.x1)/2, (lineY(0, .5) + lineY(1, .5))/2); ctx.rotate(Math.atan2(170, CH.x1 - CH.x0));
+    ctx.font = '600 22px Inter'; ctx.fillStyle = 'rgb(' + ICE + ')'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('NO BEDFORMS OF THESE SIZES', 0, 0); ctx.restore();
+  }
+  DOTS.forEach(function(d, i){
+    var da = seg(t, 19.4 + d.line*.5 + (i % 9)*.05, 19.7 + d.line*.5 + (i % 9)*.05);
+    if (da <= 0) return;
+    ctx.fillStyle = d.line ? '#F2B36B' : '#E8764F'; ctx.globalAlpha = a*da;
+    ctx.beginPath(); ctx.arc(lerp(CH.x0 + 20, CH.x1 - 20, d.u), lineY(d.line, d.u) + d.e, 8, 0, 7); ctx.fill();
+  });
+  ctx.globalAlpha = a;
+  [0, 1].forEach(function(line){
+    var p = ease(seg(t, 20.2 + line*.3, 21.0 + line*.3));
+    if (p <= 0) return;
+    ctx.strokeStyle = line ? '#F2B36B' : '#E8764F'; ctx.lineWidth = 4; ctx.setLineDash([12, 9]);
+    ctx.beginPath(); ctx.moveTo(CH.x0, lineY(line, 0)); ctx.lineTo(lerp(CH.x0, CH.x1, p), lineY(line, p)); ctx.stroke();
+    ctx.setLineDash([]);
+  });
+  ctx.restore();
+  pill('DUNES', CH.x1 - 110, lineY(0, .9) - 50, a*seg(t, 19.6, 19.9));
+  pill('LARGE RIPPLES', CH.x1 - 150, lineY(1, .9) + 50, a*seg(t, 20.1, 20.4));
+}
+
+// ---------- captions ----------
+var CAPS = [
+  { a:.3,   b:3.8,  t:'On Earth, wind shapes sand into ripples and dunes…' },
+  { a:4.0,  b:7.4,  t:'…and the smallest dunes are about 10 m long' },
+  { a:8.4,  b:11.6, t:'Mars has a third kind, not seen on Earth: large ripples…' },
+  { a:11.8, b:15.0, t:'…and its smallest dunes are about 80 m long' },
+  { a:15.2, b:19.0, t:'Large ripples shrink as the air gets denser…' },
+  { a:19.2, b:22.6, t:'…exactly as dunes do' },
+  { a:22.8, b:26.3, t:'So large ripples are shaped by airflow, like dunes…' },
+  { a:26.5, b:31.4, t:'…and turbulence keeps dunes from forming below ~80 m' },
+  { a:31.8, b:38.8, t:'This can help us reconstruct Mars\u2019 past climate from its rock record' }
+];
+function caption(t){
+  CAPS.forEach(function(k){
+    var p = seg(t, k.a, k.a+.35) * (1-seg(t, k.b-.3, k.b));
+    if (p <= 0) return;
+    ctx.save(); ctx.globalAlpha = p;
+    ctx.translate(0, (1-easeOut(seg(t,k.a,k.a+.35)))*14);
+    ctx.font = '500 42px Inter';
+    var lines = [k.t];
+    if (ctx.measureText(k.t).width > W - 140){
+      var words = k.t.split(' '), best = 1, bestD = 1e9;
+      for (var i=1;i<words.length;i++){
+        var d = Math.abs(ctx.measureText(words.slice(0,i).join(' ')).width - ctx.measureText(words.slice(i).join(' ')).width);
+        if (d < bestD){ bestD = d; best = i; }
+      }
+      lines = [words.slice(0,best).join(' '), words.slice(best).join(' ')];
+    }
+    var tw = Math.max.apply(null, lines.map(function(l){ return ctx.measureText(l).width; }));
+    var lh = 52, h = 34 + lh*lines.length, w = tw + 72, x = (W - w)/2, y = H - 26 - h;
+    rrect(x, y, w, h, Math.min(h/2, 40)); ctx.fillStyle = 'rgba(14,17,32,.86)'; ctx.fill();
+    ctx.fillStyle = '#F3F5F9'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    lines.forEach(function(l, i){ ctx.fillText(l, W/2, y + 17 + lh*(i + .5) + 1); });
+    ctx.restore();
+  });
+}
+
+// ---------- timeline ----------
+function render(t){
+  var m = planetAt(t), k = densityAt(t), f = Math.pow(k, -2/3), bump = bumpAt(t), sk = sinkAt(t);
+  var fy = lerp(H/2, BASE + 340, sk), zm = lerp(1, 1.8, sk);
+  ctx.save(); ctx.translate(W/2, H/2); ctx.scale(zm, zm); ctx.translate(-W/2, -fy);
+  drawSky(m, k);
+  drawWind(t, 1 - .7*seg(t, 15.2, 15.6) + .7*seg(t, 18.9, 19.3) - .8*seg(t, 22.6, 23.0) + .8*seg(t, 31.0, 31.4));
+  drawMolecules(t, k, seg(t, 15.2, 15.6)*(1 - seg(t, 18.9, 19.3)));
+  drawGround(m, f, bump);
+  ctx.restore();
+  var g = geom(m, f);
+
+  // planet tags
+  pill('EARTH', 90, 50, seg(t, .2, .5)*(1 - seg(t, 7.1, 7.4)) + seg(t, 29.6, 29.98)*0);
+  pill('MARS', 84, 50, seg(t, 8.0, 8.3)*(1 - seg(t, 15.0, 15.3)));
+
+  // Earth: impact ripples up close, then the smallest dune
+  var px = 700, py = BASE - surface(px, m, f, bump);
+  drawLens(t, 'impact', 1 - seg(t, 3.5, 3.9), easeOut(seg(t, 1.0, 1.5)), px, py, 600, 205, 'IMPACT RIPPLES · ~10 cm', f, m);
+  var xa = X0 - .35*g.ld, xb = xa + g.ld;
+  bracket(xa, xb, BASE - g.hd - 34, 'SMALLEST DUNES · ~10 m', seg(t, 4.2, 4.6)*(1 - seg(t, 7.0, 7.4)));
+
+  // Mars: large ripples up close, then the smallest dune
+  var qx = 230, qy = BASE - surface(qx, m, f, bump);
+  drawLens(t, 'large', 1 - seg(t, 11.3, 11.7), easeOut(seg(t, 8.8, 9.3)), qx, qy, 430, 200, 'LARGE RIPPLES · ~1 m', f, m);
+  bracket(xa, xb, BASE - g.hd - 34, 'SMALLEST DUNES · ~80 m', seg(t, 12.0, 12.4)*(1 - seg(t, 14.7, 15.1)));
+
+  // denser air: large ripples shrink (seen in the lens) along with the dunes
+  drawSlider(k, seg(t, 15.2, 15.6)*(1 - seg(t, 18.9, 19.3)));
+  drawLens(t, 'large', 1 - seg(t, 18.8, 19.2), easeOut(seg(t, 15.3, 15.8)), qx, qy, 700, 215, 'LARGE RIPPLES', f, m);
+
+  // the same trend
+  drawChart(t, seg(t, 19.1, 19.5)*(1 - seg(t, 22.4, 22.8)));
+
+  // airflow shapes both
+  drawFlow(t, m, f, seg(t, 22.9, 23.4)*(1 - seg(t, 31.0, 31.4)));
+  drawLens(t, 'flow', 1 - seg(t, 26.0, 26.4), easeOut(seg(t, 23.5, 24.0)), qx, qy, 430, 200, 'AIRFLOW OVER LARGE RIPPLES', f, m);
+
+  // too small to survive
+  var ea = seg(t, 27.4, 27.7)*(1 - seg(t, 30.6, 31.0));
+  drawEddies(t, ea);
+  pill('TOO SMALL → TURBULENCE ERODES IT', BUMP_X + 90, BASE - 190, seg(t, 27.6, 27.9)*(1 - seg(t, 30.9, 31.3)), 'rgb(' + ICE + ')');
+
+  caption(t);
+}
+
+window.renderAt = function(t){ render(t); };
+window.ready = document.fonts.load('500 42px Inter').then(function(){ return document.fonts.load('600 23px Inter'); });
+if (!/[?&]still/.test(location.search)){
+  var t0 = null;
+  ready.then(function(){ requestAnimationFrame(function loop(ts){ if (t0 === null) t0 = ts; render(((ts-t0)/1000) % DUR); requestAnimationFrame(loop); }); });
+}
+</script>
+</body>
+</html>
