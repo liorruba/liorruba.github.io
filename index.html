@@ -1047,15 +1047,19 @@ var REDUCE_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matche
   var ctx = c.getContext('2d');
   var W = 0, H = 0, S = 1;
 
-  // v: drift speed in px/s (eastward, i.e. right-to-left as seen facing south).
-  // x0: starting position as a fraction of the width.
+  // v: drift speed in px/s (eastward, i.e. right-to-left as seen facing south),
+  //    proportional to orbital mean motion (1 / period): Mercury 0.24 yr ... Saturn 29.5 yr.
+  // inc: orbital inclination (deg); sets how far the planet wanders above/below the ecliptic.
+  // ph: phase of that wander.  x0: starting position as a fraction of the width.
+  var MERCURY_SPEED = 12;
   var planets = [
-    { name:'Mercury', r:1.15, lit:'#E4DED6', dark:'#6F6962', v:7.0, x0:0.17 },
-    { name:'Venus',   r:1.9, lit:'#FFF7E2', dark:'#C7AE7A', v:5.0, x0:0.33, glow:0.38 },
-    { name:'Mars',    r:1.5, lit:'#F4A774', dark:'#8E3A22', v:3.4, x0:0.55 },
-    { name:'Jupiter', r:3.2, lit:'#F3E6CC', dark:'#A98760', v:1.8, x0:0.74, bands:true },
-    { name:'Saturn',  r:2.5, lit:'#F2E2B2', dark:'#A68D5B', v:1.2, x0:0.90, ring:true }
+    { name:'Mercury', r:1.15, lit:'#E4DED6', dark:'#6F6962', P:0.241, inc:7.0,  ph:0.9, x0:0.17 },
+    { name:'Venus',   r:1.9,  lit:'#FFF7E2', dark:'#C7AE7A', P:0.615, inc:3.4,  ph:4.1, x0:0.33, glow:0.38 },
+    { name:'Mars',    r:1.5,  lit:'#F4A774', dark:'#8E3A22', P:1.881, inc:1.85, ph:2.2, x0:0.55 },
+    { name:'Jupiter', r:3.2,  lit:'#F3E6CC', dark:'#A98760', P:11.86, inc:1.3,  ph:5.3, x0:0.74, bands:true },
+    { name:'Saturn',  r:2.5,  lit:'#F2E2B2', dark:'#A68D5B', P:29.46, inc:2.5,  ph:1.4, x0:0.90, ring:true }
   ];
+  planets.forEach(function(p){ p.v = MERCURY_SPEED * 0.241 / p.P; });
 
   // The ecliptic as a gentle arc rising to the right, kept above the name.
   function eclY(x){
@@ -1088,7 +1092,7 @@ var REDUCE_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matche
   }
 
   function drawPlanet(p, x){
-    var y = eclY(x);
+    var y = eclY(x) + p.inc * 4 * S * Math.sin(2 * Math.PI * x / W + p.ph);
     var r = p.r * S;
     var ang = eclAngle(x);
 
