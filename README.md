@@ -40,6 +40,7 @@ cd animations && node render-frames.js all dunes-wind 20.4   # name, loop length
 cd animations && node render-frames.js all cold-traps 20
 cd animations && node render-frames.js all autoencoder 20
 cd animations && node render-frames.js all ripple-regime 40
+cd animations && node render-frames.js all dune-detection 24
 ```
 
 Then encode with the ffmpeg command above and copy the MP4 and a poster frame into `videos/`.

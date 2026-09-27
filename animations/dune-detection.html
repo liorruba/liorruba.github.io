@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@font-face{font-family:"Inter";src:url("fonts/inter-latin.woff2") format("woff2");font-weight:100 900}
+html,body{margin:0;background:#161A2B}
+canvas{display:block}
+</style>
+</head>
+<body>
+<canvas id="c" width="1200" height="800"></canvas>
+<script>
+// Automatic detection and segmentation of barchan dunes on Mars: a cartoon explainer, 24 s loop.
+var W = 1200, H = 800, DUR = 24;
+var c = document.getElementById('c'), ctx = c.getContext('2d');
+var ICE = '143,211,232';
+
+// ---------- helpers ----------
+function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
+function seg(t,a,b){ return clamp((t-a)/(b-a), 0, 1); }
+function ease(x){ return x<.5 ? 4*x*x*x : 1-Math.pow(-2*x+2,3)/2; }
+function easeOut(x){ return 1-Math.pow(1-x,3); }
+function back(x){ var k=1.7; return 1+(k+1)*Math.pow(x-1,3)+k*Math.pow(x-1,2); }
+function lerp(a,b,p){ return a + (b-a)*p; }
+function rng(seed){ return function(){ seed = (seed*16807) % 2147483647; return (seed-1)/2147483646; }; }
+function rrect(x,y,w,h,r){ ctx.beginPath(); ctx.roundRect(x,y,w,h,r); }
+function pill(text, x, y, a, bg){
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.font = '600 23px Inter';
+  var w = ctx.measureText(text).width + 32;
+  rrect(x - w/2, y - 20, w, 40, 20); ctx.fillStyle = bg || 'rgba(14,17,32,.86)'; ctx.fill();
+  ctx.fillStyle = bg ? '#0E1120' : '#F3F5F9'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x, y + 1);
+  ctx.restore();
+}
+
+// ---------- barchan geometry (local coords: horns point to +x, downwind) ----------
+function cubic(p0, p1, p2, p3, u){
+  var v = 1 - u;
+  return [v*v*v*p0[0] + 3*v*v*u*p1[0] + 3*v*u*u*p2[0] + u*u*u*p3[0], v*v*v*p0[1] + 3*v*v*u*p1[1] + 3*v*u*u*p2[1] + u*u*u*p3[1]];
+}
+function outlineSegs(s){
+  return [
+    [[.95*s,-.8*s],[.35*s,-1.12*s],[-.8*s,-.78*s],[-.8*s,0]],
+    [[-.8*s,0],[-.8*s,.78*s],[.35*s,1.12*s],[.95*s,.8*s]],
+    [[.95*s,.8*s],[.58*s,.55*s],[.28*s,.42*s],[.28*s,0]],
+    [[.28*s,0],[.28*s,-.42*s],[.58*s,-.55*s],[.95*s,-.8*s]]
+  ];
+}
+function outlinePts(s, n){
+  var pts = [];
+  outlineSegs(s).forEach(function(sg){ for (var i=0;i<n;i++) pts.push(cubic(sg[0], sg[1], sg[2], sg[3], i/n)); });
+  pts.push(pts[0]);
+  return pts;
+}
+function pathFromPts(pts){ var p = new Path2D(); pts.forEach(function(q, i){ i ? p.lineTo(q[0], q[1]) : p.moveTo(q[0], q[1]); }); p.closePath(); return p; }
+function slipPts(s, n){
+  var a = [[.95*s,-.8*s],[.3*s,-.72*s],[-.08*s,-.45*s],[-.08*s,0]], b = [[-.08*s,0],[-.08*s,.45*s],[.3*s,.72*s],[.95*s,.8*s]], pts = [], i;
+  for (i=0;i<=n;i++) pts.push(cubic(a[0],a[1],a[2],a[3], i/n));
+  for (i=1;i<=n;i++) pts.push(cubic(b[0],b[1],b[2],b[3], i/n));
+  var segs = outlineSegs(s);
+  for (i=1;i<=n;i++) pts.push(cubic(segs[2][0],segs[2][1],segs[2][2],segs[2][3], i/n));
+  for (i=1;i<=n;i++) pts.push(cubic(segs[3][0],segs[3][1],segs[3][2],segs[3][3], i/n));
+  return pts;
+}
+
+// ---------- the orbital image ----------
+var DUNES = [], HERO;
+(function(){
+  var r = rng(17), tries = 0;
+  HERO = { x:560, y:410, s:78, a:.12 };
+  DUNES.push(HERO);
+  while (DUNES.length < 26 && tries++ < 5000){
+    var d = { x: 70 + r()*1060, y: 70 + r()*640, s: 26 + r()*36, a: (r() - .5)*.6 + .1 };
+    if (DUNES.every(function(o){ return Math.hypot(o.x - d.x, o.y - d.y) > (o.s + d.s)*1.45; })) DUNES.push(d);
+  }
+  DUNES.forEach(function(d, i){
+    var h = (i*47) % 360;
+    d.col = 'hsla(' + h + ',75%,58%,';
+    d.at = 5.6 + (d.x/W)*2.2 + r()*.2;            // when the AI finds it
+    d.conf = 90 + Math.floor(r()*9);
+    d.out = pathFromPts(outlinePts(d.s, 14));
+    d.slip = pathFromPts(slipPts(d.s, 10));
+  });
+})();
+
+function drawDuneGray(g, d){
+  g.save(); g.translate(d.x, d.y); g.rotate(d.a);
+  g.save(); g.translate(4, 5); g.fillStyle = 'rgba(20,20,24,.35)'; g.fill(d.out); g.restore();
+  var gr = g.createLinearGradient(-d.s, -d.s, d.s*.3, d.s);
+  gr.addColorStop(0, '#C9C9CE'); gr.addColorStop(1, '#9C9CA4');
+  g.fillStyle = gr; g.fill(d.out);
+  g.fillStyle = '#4B4B53'; g.fill(d.slip);
+  g.restore();
+}
+var BASEIMG = document.createElement('canvas'); BASEIMG.width = W; BASEIMG.height = H;
+(function(){
+  var g = BASEIMG.getContext('2d'), r = rng(3), i;
+  var gr = g.createRadialGradient(W*.45, H*.4, 50, W*.5, H*.5, W*.8);
+  gr.addColorStop(0, '#8E8E95'); gr.addColorStop(1, '#6F6F77');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  for (i=0;i<5000;i++){ g.fillStyle = r() < .5 ? 'rgba(40,40,46,' + (.08 + r()*.1) + ')' : 'rgba(230,230,235,' + (.05 + r()*.08) + ')'; g.fillRect(r()*W, r()*H, 1 + r()*2, 1 + r()*2); }
+  g.strokeStyle = 'rgba(50,50,56,.18)'; g.lineWidth = 2;
+  for (i=0;i<260;i++){ var x = r()*W, y = r()*H, L = 10 + r()*16; g.beginPath(); g.moveTo(x, y - L); g.quadraticCurveTo(x + 5, y, x, y + L); g.stroke(); }
+  [[140,650,40],[1080,130,30],[900,690,22],[300,120,18]].forEach(function(k){
+    g.fillStyle = 'rgba(50,50,58,.35)'; g.beginPath(); g.arc(k[0], k[1], k[2], 0, 7); g.fill();
+    g.lineWidth = k[2]*.2; g.strokeStyle = 'rgba(230,230,236,.45)'; g.beginPath(); g.arc(k[0], k[1], k[2]*.9, -.3, 2.2); g.stroke();
+  });
+  DUNES.forEach(function(d){ drawDuneGray(g, d); });
+})();
+
+// ---------- overlays ----------
+function worldPt(d, p){ var ca = Math.cos(d.a), sa = Math.sin(d.a); return [d.x + p[0]*ca - p[1]*sa, d.y + p[0]*sa + p[1]*ca]; }
+function drawMask(g, d, a, lw){
+  if (a <= 0) return;
+  g.save(); g.translate(d.x, d.y); g.rotate(d.a);
+  g.fillStyle = d.col + (.38*a) + ')'; g.fill(d.out);
+  g.strokeStyle = 'rgba(255,255,255,' + a + ')'; g.lineWidth = lw || 2.5; g.lineJoin = 'round'; g.stroke(d.out);
+  g.restore();
+}
+function drawArrow(g, d, p, lw){
+  if (p <= 0) return;
+  var t0 = worldPt(d, [-.95*d.s, 0]), t1 = worldPt(d, [lerp(-.95, 1.9, easeOut(p))*d.s, 0]);
+  var ang = d.a, hd = Math.max(10, d.s*.35);
+  g.save();
+  g.strokeStyle = g.fillStyle = '#FF5A4E'; g.lineWidth = lw || 4; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(t0[0], t0[1]); g.lineTo(t1[0] - Math.cos(ang)*hd*.6, t1[1] - Math.sin(ang)*hd*.6); g.stroke();
+  g.beginPath(); g.moveTo(t1[0], t1[1]);
+  g.lineTo(t1[0] - Math.cos(ang - .45)*hd, t1[1] - Math.sin(ang - .45)*hd);
+  g.lineTo(t1[0] - Math.cos(ang + .45)*hd, t1[1] - Math.sin(ang + .45)*hd); g.closePath(); g.fill();
+  g.restore();
+}
+var ANNOT = document.createElement('canvas'); ANNOT.width = W; ANNOT.height = H;
+(function(){
+  var g = ANNOT.getContext('2d');
+  g.drawImage(BASEIMG, 0, 0);
+  DUNES.forEach(function(d){ drawMask(g, d, 1, 3); drawArrow(g, d, 1, 5); });
+})();
+
+function cross(x, y, r, col, a){
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = col; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x - r, y - r); ctx.lineTo(x + r, y + r); ctx.moveTo(x + r, y - r); ctx.lineTo(x - r, y + r); ctx.stroke();
+  ctx.restore();
+}
+function drawPen(x, y){
+  ctx.save(); ctx.translate(x, y); ctx.rotate(-.75); ctx.scale(1.7, 1.7);
+  ctx.fillStyle = '#F2C94C'; ctx.fillRect(0, -6, 46, 12);
+  ctx.fillStyle = '#E9E3D6'; ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(-14, 0); ctx.lineTo(0, 6); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#0E1120'; ctx.beginPath(); ctx.moveTo(-9, -2.5); ctx.lineTo(-14, 0); ctx.lineTo(-9, 2.5); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#E27B7B'; ctx.fillRect(40, -6, 8, 12);
+  ctx.restore();
+}
+
+// ---------- camera ----------
+var MOSAIC = [];
+(function(){
+  var r = rng(44);
+  for (var i=-3;i<=3;i++) for (var j=-3;j<=3;j++){ if (!i && !j) continue; MOSAIC.push({ i:i, j:j, rot: r() < .5 ? 0 : 2, flip: r() < .5, b: .85 + r()*.3, d: Math.hypot(i, j) }); }
+})();
+function camAt(t){
+  var zh = ease(seg(t, 10.2, 11.3)) - ease(seg(t, 15.8, 16.8));      // zoom on the hero dune
+  var zo = ease(seg(t, 19.0, 20.8)) - ease(seg(t, 22.4, 23.7));      // zoom out to the mosaic
+  var s = lerp(1, 3.2, zh) * lerp(1, .17, zo);
+  var cx = lerp(W/2, HERO.x + 25, zh), cy = lerp(H/2, HERO.y, zh);
+  return { s:s, cx:cx, cy:cy, zo:zo };
+}
+
+// ---------- captions ----------
+var CAPS = [
+  { a:.3,  b:5.0,  t:'Not long ago, dunes on Mars were mapped by hand…' },
+  { a:5.3, b:10.0, t:'…so we trained an AI model to find them automatically' },
+  { a:10.4, b:15.0, t:'It outlines each dune and locates its slip face…' },
+  { a:15.3, b:19.0, t:'…whose direction reveals the wind' },
+  { a:19.4, b:23.3, t:'Opening the way to mapping dunes across all of Mars' }
+];
+function caption(t){
+  CAPS.forEach(function(k){
+    var p = seg(t, k.a, k.a+.35) * (1-seg(t, k.b-.3, k.b));
+    if (p <= 0) return;
+    ctx.save(); ctx.globalAlpha = p;
+    ctx.translate(0, (1-easeOut(seg(t,k.a,k.a+.35)))*14);
+    ctx.font = '500 42px Inter';
+    var lines = [k.t];
+    if (ctx.measureText(k.t).width > W - 140){
+      var words = k.t.split(' '), best = 1, bestD = 1e9;
+      for (var i=1;i<words.length;i++){
+        var d = Math.abs(ctx.measureText(words.slice(0,i).join(' ')).width - ctx.measureText(words.slice(i).join(' ')).width);
+        if (d < bestD){ bestD = d; best = i; }
+      }
+      lines = [words.slice(0,best).join(' '), words.slice(best).join(' ')];
+    }
+    var tw = Math.max.apply(null, lines.map(function(l){ return ctx.measureText(l).width; }));
+    var lh = 52, h = 34 + lh*lines.length, w = tw + 72, x = (W - w)/2, y = H - 26 - h;
+    rrect(x, y, w, h, Math.min(h/2, 40)); ctx.fillStyle = 'rgba(14,17,32,.86)'; ctx.fill();
+    ctx.fillStyle = '#F3F5F9'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    lines.forEach(function(l, i){ ctx.fillText(l, W/2, y + 17 + lh*(i + .5) + 1); });
+    ctx.restore();
+  });
+}
+
+// ---------- timeline ----------
+var TRACED = DUNES.filter(function(d){ return d !== HERO && d.y < 430 && d.x > 150 && d.x < 1050; })
+  .sort(function(a, b){ return b.s - a.s; }).slice(0, 2).sort(function(a, b){ return a.x - b.x; });
+var TRACE_PTS = TRACED.map(function(d){ return outlinePts(d.s, 30).map(function(p){ return worldPt(d, p); }); });
+
+function render(t){
+  ctx.fillStyle = '#161A2B'; ctx.fillRect(0, 0, W, H);
+  var cam = camAt(t);
+  var endFade = 1 - seg(t, 22.6, 23.7);                    // overlays fade as we return to the raw image
+  ctx.save();
+  ctx.translate(W/2, H/2); ctx.scale(cam.s, cam.s); ctx.translate(-cam.cx, -cam.cy);
+
+  // neighbouring images in the mosaic
+  if (cam.zo > 0){
+    MOSAIC.forEach(function(m){
+      var a = clamp(cam.zo*3 - m.d*.35, 0, 1);
+      if (a <= 0) return;
+      ctx.save(); ctx.globalAlpha = a;
+      ctx.translate(W/2 + m.i*(W + 60), H/2 + m.j*(H + 60)); ctx.rotate(m.rot*Math.PI/2); if (m.flip) ctx.scale(-1, 1);
+      var sw = m.rot % 2 ? H : W, sh = m.rot % 2 ? W : H;
+      ctx.filter = 'brightness(' + m.b + ')';
+      ctx.drawImage(ANNOT, -W/2, -H/2, W, H);
+      ctx.restore();
+    });
+  }
+
+  ctx.drawImage(BASEIMG, 0, 0);
+
+  // 1. tracing by hand
+  var tr1 = seg(t, .9, 3.0), tr2 = seg(t, 3.2, 4.9), hA = 1 - seg(t, 5.3, 5.8);
+  [tr1, tr2].forEach(function(p, k){
+    if (p <= 0 || hA <= 0) return;
+    var pts = TRACE_PTS[k], n = Math.floor(p*(pts.length - 1));
+    ctx.save(); ctx.globalAlpha = hA; ctx.strokeStyle = '#F2C94C'; ctx.lineWidth = 3.5; ctx.setLineDash([9, 6]); ctx.lineJoin = 'round';
+    ctx.beginPath(); for (var i=0;i<=n;i++) i ? ctx.lineTo(pts[i][0], pts[i][1]) : ctx.moveTo(pts[i][0], pts[i][1]); ctx.stroke();
+    ctx.restore();
+  });
+  var penP = t < 3.1 ? tr1 : tr2, penK = t < 3.1 ? 0 : 1;
+  if (t > .8 && t < 5.1){
+    var pp = TRACE_PTS[penK], pi = Math.min(pp.length - 1, Math.floor(penP*(pp.length - 1)));
+    drawPen(pp[pi][0], pp[pi][1]);
+  }
+
+  // 2. the AI: scan, then instance masks pop in
+  var sc = seg(t, 5.5, 7.9);
+  DUNES.forEach(function(d){
+    var ma = seg(t, d.at, d.at + .25) * endFade;
+    drawMask(ctx, d, ma, cam.s > 1 ? 3/cam.s : 3);
+  });
+  if (sc > 0 && sc < 1){
+    var sx = sc*W;
+    var lg = ctx.createLinearGradient(sx - 90, 0, sx, 0);
+    lg.addColorStop(0, 'rgba(' + ICE + ',0)'); lg.addColorStop(1, 'rgba(' + ICE + ',.35)');
+    ctx.fillStyle = lg; ctx.fillRect(sx - 90, 0, 90, H);
+    ctx.fillStyle = 'rgb(' + ICE + ')'; ctx.fillRect(sx - 2, 0, 3, H);
+  }
+  // a few confidence tags
+  [HERO, DUNES[5], DUNES[11], DUNES[16]].forEach(function(d){
+    var ta = seg(t, d.at + .2, d.at + .45) * (1 - seg(t, 9.8, 10.2));
+    if (ta <= 0 || !d) return;
+    ctx.save(); ctx.globalAlpha = ta;
+    ctx.font = '600 18px Inter'; var tx = 'barchan ' + d.conf + '%', w = ctx.measureText(tx).width + 18;
+    rrect(d.x - w/2, d.y - d.s*1.25 - 30, w, 26, 13); ctx.fillStyle = d.col + '1)'; ctx.fill();
+    ctx.fillStyle = '#0E1120'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(tx, d.x, d.y - d.s*1.25 - 16);
+    ctx.restore();
+  });
+
+  // 3. one dune up close: hull, horns, tail, slip face
+  var hz = seg(t, 11.3, 11.7) * (1 - seg(t, 15.8, 16.2));
+  if (hz > 0){
+    var s = HERO.s, lw = 2.2;
+    var H1 = worldPt(HERO, [.95*s, -.8*s]), H2 = worldPt(HERO, [.95*s, .8*s]), TL = worldPt(HERO, [-.8*s, 0]), SF = worldPt(HERO, [.28*s, 0]);
+    var hull = seg(t, 11.6, 12.4);
+    if (hull > 0){
+      ctx.save(); ctx.globalAlpha = hz; ctx.strokeStyle = 'rgb(' + ICE + ')'; ctx.lineWidth = lw; ctx.setLineDash([6, 5]);
+      ctx.beginPath(); ctx.moveTo(H1[0], H1[1]); ctx.lineTo(lerp(H1[0], H2[0], hull), lerp(H1[1], H2[1], hull)); ctx.stroke();
+      ctx.restore();
+    }
+    var dp = seg(t, 12.4, 13.0);
+    if (dp > 0){
+      var mid = [(H1[0] + H2[0])/2, (H1[1] + H2[1])/2];
+      ctx.save(); ctx.globalAlpha = hz; ctx.strokeStyle = 'rgb(' + ICE + ')'; ctx.lineWidth = lw;
+      ctx.beginPath(); ctx.moveTo(mid[0], mid[1]); ctx.lineTo(lerp(mid[0], SF[0], dp), lerp(mid[1], SF[1], dp)); ctx.stroke();
+      ctx.fillStyle = 'rgb(' + ICE + ')'; ctx.beginPath(); ctx.arc(SF[0], SF[1], 4*dp, 0, 7); ctx.fill();
+      ctx.restore();
+    }
+    cross(H1[0], H1[1], 4, '#5BD66A', hz*seg(t, 13.1, 13.4));
+    cross(H2[0], H2[1], 4, '#5BD66A', hz*seg(t, 13.1, 13.4));
+    cross(TL[0], TL[1], 4, '#FF5A4E', hz*seg(t, 13.6, 13.9));
+  }
+  var arrowAll = seg(t, 16.6, 17.8);
+  DUNES.forEach(function(d){
+    var p = d === HERO ? seg(t, 15.3, 16.0) : seg(t, 16.6 + (d.x/W)*.9, 17.1 + (d.x/W)*.9);
+    drawArrow(ctx, d, p*endFade, (d === HERO && t < 16.6) ? 2.2 : (cam.s > 1 ? 4/cam.s : 5));
+  });
+  ctx.restore();
+
+  // labels in screen space while zoomed on the hero dune
+  if (hz > 0){
+    var sc2 = cam.s;
+    function scr(p){ return [W/2 + (p[0] - cam.cx)*sc2, H/2 + (p[1] - cam.cy)*sc2]; }
+    var s2 = HERO.s, A = scr(worldPt(HERO, [.95*s2, -.8*s2])), B = scr(worldPt(HERO, [-.8*s2, 0])), C = scr(worldPt(HERO, [.28*s2, 0]));
+    pill('HORNS', A[0] + 80, A[1] - 40, hz*seg(t, 13.2, 13.5), 'rgb(91,214,106)');
+    pill('TAIL', B[0] - 70, B[1] - 60, hz*seg(t, 13.7, 14.0), 'rgb(255,90,78)');
+    pill('SLIP FACE', C[0] + 120, C[1] + 70, hz*seg(t, 12.8, 13.1), 'rgb(' + ICE + ')');
+  }
+
+  // counters
+  var hc = seg(t, 1.2, 1.5)*(1 - seg(t, 5.3, 5.6));
+  if (hc > 0) pill('Dunes mapped: ' + (t < 3.0 ? 0 : t < 4.9 ? 1 : 2), 170, 50, hc);
+  var ac = seg(t, 5.6, 5.9)*(1 - seg(t, 9.8, 10.2));
+  if (ac > 0) pill('Dunes mapped: ' + DUNES.filter(function(d){ return t > d.at; }).length, 170, 50, ac, 'rgb(' + ICE + ')');
+  var mc = seg(t, 20.0, 20.4)*(1 - seg(t, 22.3, 22.7));
+  if (mc > 0) pill('Dunes mapped: 1,000,000+', W/2, 60, mc, 'rgb(' + ICE + ')');
+
+  caption(t);
+}
+
+window.renderAt = function(t){ render(t); };
+window.ready = document.fonts.load('500 42px Inter').then(function(){ return document.fonts.load('600 23px Inter'); });
+if (!/[?&]still/.test(location.search)){
+  var t0 = null;
+  ready.then(function(){ requestAnimationFrame(function loop(ts){ if (t0 === null) t0 = ts; render(((ts-t0)/1000) % DUR); requestAnimationFrame(loop); }); });
+}
+</script>
+</body>
+</html>
