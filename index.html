@@ -1050,11 +1050,11 @@ var REDUCE_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matche
   // v: drift speed in px/s (eastward, i.e. right-to-left as seen facing south).
   // x0: starting position as a fraction of the width.
   var planets = [
-    { name:'Mercury', r:2.3, lit:'#E4DED6', dark:'#6F6962', v:7.0, x0:0.17 },
-    { name:'Venus',   r:3.8, lit:'#FFF7E2', dark:'#C7AE7A', v:5.0, x0:0.33, glow:0.38 },
-    { name:'Mars',    r:3.0, lit:'#F4A774', dark:'#8E3A22', v:3.4, x0:0.55 },
-    { name:'Jupiter', r:6.4, lit:'#F3E6CC', dark:'#A98760', v:1.8, x0:0.74, bands:true },
-    { name:'Saturn',  r:5.0, lit:'#F2E2B2', dark:'#A68D5B', v:1.2, x0:0.90, ring:true }
+    { name:'Mercury', r:1.15, lit:'#E4DED6', dark:'#6F6962', v:7.0, x0:0.17 },
+    { name:'Venus',   r:1.9, lit:'#FFF7E2', dark:'#C7AE7A', v:5.0, x0:0.33, glow:0.38 },
+    { name:'Mars',    r:1.5, lit:'#F4A774', dark:'#8E3A22', v:3.4, x0:0.55 },
+    { name:'Jupiter', r:3.2, lit:'#F3E6CC', dark:'#A98760', v:1.8, x0:0.74, bands:true },
+    { name:'Saturn',  r:2.5, lit:'#F2E2B2', dark:'#A68D5B', v:1.2, x0:0.90, ring:true }
   ];
 
   // The ecliptic as a gentle arc rising to the right, kept above the name.
@@ -1129,11 +1129,6 @@ var REDUCE_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matche
       ctx.beginPath(); ctx.ellipse(x, y, r*2.25, r*0.62, ringTilt, 0, Math.PI); ctx.stroke();
     }
 
-    ctx.font = '500 9px "IBM Plex Mono", ui-monospace, monospace';
-    if ('letterSpacing' in ctx) ctx.letterSpacing = '1.5px';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(166,174,194,.42)';
-    ctx.fillText(p.name.toUpperCase(), x, y + r + (p.ring ? 17 : 15));
   }
 
   function drawEcliptic(){
