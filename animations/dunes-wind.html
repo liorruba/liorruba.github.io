@@ -204,13 +204,14 @@ function tag(text, x, y, p){
 var DUR_ = 20.4, TS0 = 6.8, K = 8.95/6.9, TS1 = TS0 + 6.9, TR1 = TS1 + 2.6;
 function sT(x){ return TS0 + x/K; }
 var CAPS = [
-  { a:.25,       b:2.3,      t:'Mars has no weather stations to measure its winds' },
-  { a:2.45,      b:4.4,      t:'But it has over a million dunes that act as wind vanes' },
-  { a:sT(.25),   b:sT(3.0),  t:'Wind blows sand into crescent-shaped dunes' },
-  { a:sT(3.25),  b:sT(5.35), t:'Spacecraft photograph them from orbit' },
-  { a:sT(5.6),   b:TS1,      t:'AI finds each dune — its horns point downwind' },
-  { a:TS1 + .2,  b:TR1 - .1, t:'Dune by dune, we map the wind around the ice cap' },
-  { a:TR1 + .3,  b:DUR_ - 1, t:'Together they reveal winds swirling around the pole' }
+  { a:.25,       b:2.3,      t:'Mars has no weather stations' },
+  { a:2.45,      b:4.4,      t:'Its dunes are wind vanes' },
+  { a:sT(.25),   b:sT(3.0),  t:'Wind shapes crescent dunes' },
+  { a:sT(3.25),  b:sT(5.35), t:'Satellites photograph them' },
+  { a:sT(5.6),   b:sT(7.3),  t:'AI finds each dune' },
+  { a:sT(7.4),   b:TS1,      t:'Horns point downwind' },
+  { a:TS1 + .2,  b:TR1 - .1, t:'Mapping winds, dune by dune' },
+  { a:TR1 + .3,  b:DUR_ - 1, t:'Winds swirl around the pole' }
 ];
 function caption(t){
   CAPS.forEach(function(k){
