@@ -842,6 +842,8 @@ footer{position:relative;margin-top:24px}
     <div class="chips" id="conf-chips" role="group" aria-label="Filter conference presentations by topic"></div>
   </div>
   <ol class="pubs" id="conf-list">
+    <li>Rubanenko, L. and Powell, T.M., 2025. Directional thermal emissions from the lunar surface in the presence of shadows. LPSC 56, #2879. <a href="https://www.hou.usra.edu/meetings/lpsc2025/pdf/2879.pdf">Link</a></li>
+    <li>Rubanenko, L., Lapôtre, M.G.A., Gunn, A., Ewing, R.C., Chojnacki, M., Fenton, L.K. and Schorghofer, N., 2024. Mars' modern climate and atmosphere: a synthesis of new findings from global, artificial intelligence-driven analyses of sand dunes. Europlanet Science Congress, EPSC2024-613. <a href="https://meetingorganizer.copernicus.org/EPSC2024/EPSC2024-613.html">Link</a></li>
     <li>Rubanenko, L., Paige, D.A., Moon, S. and Kakaria, R., 2023. CNN-detected boulders across the Jezero western delta fan indicate significantly higher flood discharge compared to previous estimates. AGU23.</li>
     <li>Prieur, N.C., Amaro, B., Gonzalez, E., Rubanenko, L., Kerner, H.R., Xiao, Z., Werner, S.C. and Lapôtre, M.G.A., 2022. Deep learning for boulder detection on planetary surfaces. AGU Fall Meeting, pp.P23A-02.</li>
     <li>Rubanenko, L., Fenton, L., Chojnacki, M. and Lapôtre, M.G.A., 2022. Impact of surface volatiles on the slipface slope angle of Martian barchan dunes. AGU Fall Meeting, pp.EP43A-09.</li>
@@ -1230,6 +1232,11 @@ var REDUCE_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matche
   var confList = document.getElementById('conf-list');
   var status = document.getElementById('pub-status');
   var chipBox = document.getElementById('pub-chips');
+  // snapshot of the hand-curated conference list, before anything is enhanced
+  var CURATED_CONF = confList ? [].map.call(confList.children, function(li){
+    var y = (li.textContent.match(/\b(19|20)\d{2}\b/) || ['0'])[0];
+    return { year: +y, key: String(li.textContent).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(), html: li.outerHTML };
+  }) : [];
   if (!list) return;
 
   var url = 'https://api.openalex.org/works'
@@ -1356,7 +1363,15 @@ var REDUCE_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matche
     if (!journals.length) return false;
 
     list.innerHTML = journals.map(format).join('');
-    if (confList && confs.length) confList.innerHTML = confs.map(format).join('');
+    if (confList && confs.length){
+      // Conference abstracts are poorly indexed, so the curated list in the HTML always stays;
+      // OpenAlex only adds talks whose titles are not already listed.
+      var have = CURATED_CONF.map(function(c){ return c.key; }).join(' | ');
+      var extra = confs.filter(function(w){ var k = norm(w.title); return k && have.indexOf(k) === -1; })
+        .map(function(w){ return { year: w.publication_year || 0, html: format(w) }; });
+      var merged = CURATED_CONF.concat(extra).sort(function(a, b){ return b.year - a.year; });
+      confList.innerHTML = merged.map(function(c){ return c.html; }).join('');
+    }
     return true;
   }
 
