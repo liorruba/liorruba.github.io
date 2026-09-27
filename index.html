@@ -815,25 +815,6 @@ footer{position:relative;margin-top:24px}
       <figcaption>Detected dunes and derived wind directions (red arrows) — MRO CTX</figcaption>
     </figure>
   </div>
-
-  <div class="project flip" id="r-gan">
-    <div>
-      <p class="tags"><span>Craters</span><span>GANs</span><span>Few-shot learning</span></p>
-      <h3>Training a crater detector on a few dozen samples</h3>
-      <p>Classification of imagery data usually requires an expert human analyst to label and classify topographic features. Even binary classification using a fully convolutional neural network will typically have trouble converging until several hundred images have been labeled. Here I explore how generative adversarial networks can train a binary classifier to detect impact craters with only a few dozen training samples.</p>
-      <p>The model reaches 90% accuracy with 50 samples, where a fully convolutional network cannot converge at all on a dataset that small.</p>
-      <p><a href="https://github.com/liorruba/crater_classification">See the code on GitHub</a></p>
-    </div>
-    <figure>
-      <a class="zoom plain" href="images/gan-latent-space.png">
-        <picture>
-          <source srcset="images/gan-latent-space.webp" type="image/webp">
-          <img src="images/gan-latent-space.png" alt="Snapshot of the SGAN model latent space after training" width="432" height="288" loading="lazy">
-        </picture>
-      </a>
-      <figcaption>SGAN latent space after 20 epochs of training</figcaption>
-    </figure>
-  </div>
 </section>
 
 <section id="publications" class="reveal">
